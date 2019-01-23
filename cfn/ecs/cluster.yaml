@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Fargate: cluster, a @wolfeidau template'
+Resources:
+
+  Cluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties: {}
+
+Outputs:
+
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+
+  Cluster:
+    Description: 'Fargate cluster.'
+    Value: !Ref Cluster
+    Export:
+      Name: !Sub '${AWS::StackName}-Cluster'
