@@ -1,10 +1,6 @@
 package launcher
 
 import (
-	"strings"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/pkg/errors"
 )
 
@@ -21,48 +17,35 @@ type Launcher interface {
 
 // RunTaskParams used to launch container based tasks
 type RunTaskParams struct {
-	ClusterName    string            `json:"cluster_name,omitempty"`
-	ServiceName    string            `json:"service_name,omitempty"`
-	ContainerName  string            `json:"container_name,omitempty"`
-	Environment    map[string]string `json:"environment,omitempty"`
-	TaskDefinition string            `json:"task_definition,omitempty"`
-	Subnets        []string          `json:"subnets,omitempty"`
-	CPU            int64             `json:"cpu,omitempty"`
-	Memory         int64             `json:"memory,omitempty"`
+	ECS         *ECSTaskParams    `json:"ecs,omitempty"`
+	Environment map[string]string `json:"environment,omitempty"`
+	Tags        map[string]string `json:"tags,omitempty"`
+	Subnets     []string          `json:"subnets,omitempty" jsonschema:"required"`
+	CPU         int64             `json:"cpu,omitempty" jsonschema:"required"`
+	Memory      int64             `json:"memory,omitempty" jsonschema:"required"`
+}
+
+// ECSTaskParams ECS related run task parameters
+type ECSTaskParams struct {
+	ClusterName    string `json:"cluster_name,omitempty" jsonschema:"required"`
+	ServiceName    string `json:"service_name,omitempty" jsonschema:"required"`
+	ContainerName  string `json:"container_name,omitempty" jsonschema:"required"`
+	TaskDefinition string `json:"task_definition,omitempty" jsonschema:"required"`
 }
 
 // ECSDefinitionParams ECS related definition parameters
 type ECSDefinitionParams struct {
-	ExecutionRoleARN string `json:"execution_role_arn,omitempty"`
-	DefinitionName   string `json:"definition_name,omitempty"`
-	ContainerName    string `json:"container_name,omitempty"`
+	ExecutionRoleARN string `json:"execution_role_arn,omitempty" jsonschema:"required"`
+	DefinitionName   string `json:"definition_name,omitempty" jsonschema:"required"`
+	ContainerName    string `json:"container_name,omitempty" jsonschema:"required"`
 }
 
 // DefinitionParams parameters used to build a container execution environment
 type DefinitionParams struct {
 	ECS         *ECSDefinitionParams `json:"ecs,omitempty"`
-	Region      string               `json:"region,omitempty"`
+	Region      string               `json:"region,omitempty" jsonschema:"required"`
 	TaskRoleARN *string              `json:"task_role_arn,omitempty"` // optional
-	Image       string               `json:"image,omitempty"`
-}
-
-func shortenTaskArn(taskArn *string) string {
-	tokens := strings.Split(aws.StringValue(taskArn), "/")
-	if len(tokens) == 3 {
-		return tokens[2]
-	}
-
-	return "unknown"
-}
-
-func convertMapToKeyValuePair(env map[string]string) []*ecs.KeyValuePair {
-
-	ecsEnv := []*ecs.KeyValuePair{}
-
-	for k, v := range env {
-		//ecsEnv[]
-		ecsEnv = append(ecsEnv, &ecs.KeyValuePair{Name: aws.String(k), Value: aws.String(v)})
-	}
-
-	return ecsEnv
+	Image       string               `json:"image,omitempty" jsonschema:"required"`
+	Environment map[string]string    `json:"environment,omitempty"`
+	Tags        map[string]string    `json:"tags,omitempty"`
 }

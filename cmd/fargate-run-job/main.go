@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
+	"github.com/wolfeidau/fargate-run-job/pkg/schema"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 var (
@@ -22,6 +25,9 @@ var (
 
 	newTask    = app.Command("new-task", "Launch a new ECS task.")
 	launchFile = newTask.Arg("launch-file", "The path to the launch parameters file.").Required().File()
+
+	dumpSchema = app.Command("dump-schema", "Write the JSON Schema to stdout.")
+	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefinitionParams", "RunTaskParams")
 )
 
 func main() {
@@ -35,10 +41,17 @@ func main() {
 	case newDef.FullCommand():
 		ld := new(launcher.DefinitionParams)
 
-		err := loadJSONFile(*defFile, ld)
+		data, err := loadJSONFile(*defFile, ld)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
+
+		err = validateInputFile("DefinitionParams", string(data))
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to load definition file")
+		}
+
+		logrus.Info("valid definition supplied")
 
 		logrus.WithFields(logrus.Fields{
 			"name": ld.ECS.DefinitionName,
@@ -55,34 +68,94 @@ func main() {
 
 		rt := new(launcher.RunTaskParams)
 
-		err := loadJSONFile(*launchFile, rt)
+		data, err := loadJSONFile(*launchFile, rt)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
 
+		err = validateInputFile("RunTaskParams", string(data))
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to load definition file")
+		}
+
+		logrus.Info("valid task supplied")
+
 		logrus.WithFields(logrus.Fields{
-			"name": rt.ServiceName,
+			"name": rt.ECS.ServiceName,
 		}).Info("new task")
 
 		err = lch.RunTask(rt)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to launch task")
 		}
+
+	case dumpSchema.FullCommand():
+
+		jsonStr, err := getSchema(*structName)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to marshal schema")
+		}
+
+		fmt.Println(jsonStr)
 	}
 }
 
-func loadJSONFile(file *os.File, val interface{}) error {
+func validateInputFile(paramName string, payloadJSON string) error {
+
+	jsonStr, err := getSchema(paramName)
+	if err != nil {
+		return err
+	}
+
+	schemaLoader := gojsonschema.NewStringLoader(jsonStr)
+	documentLoader := gojsonschema.NewStringLoader(payloadJSON)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return err
+	}
+
+	if !result.Valid() {
+		for _, desc := range result.Errors() {
+			logrus.WithField("desc", desc).Warn("validation")
+		}
+
+		return errors.New("validation errors")
+	}
+
+	return nil
+}
+
+func getSchema(paramName string) (string, error) {
+	var v interface{}
+
+	switch paramName {
+	case "DefinitionParams":
+		v = &launcher.DefinitionParams{}
+	case "RunTaskParams":
+		v = &launcher.RunTaskParams{}
+	}
+
+	data, err := schema.DumpSchema(v)
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
+}
+
+func loadJSONFile(file *os.File, val interface{}) ([]byte, error) {
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		return errors.Wrap(err, "failed to read file")
+		return nil, errors.Wrap(err, "failed to read file")
 	}
 
 	err = json.Unmarshal(data, val)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal JSON file")
+		return nil, errors.Wrap(err, "failed to unmarshal JSON file")
 	}
 
-	return nil
+	return data, nil
 }
 
 func emptyToNil(val *string) *string {

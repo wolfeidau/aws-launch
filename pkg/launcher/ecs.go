@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -12,6 +13,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	// DefaultCPU default cpu allocation to a fargate task
+	DefaultCPU = "256"
+	// DefaultMemory default memory allocation to a fargate task
+	DefaultMemory = "512"
 )
 
 // ECSLauncher used to launch containers in ECS, specifically fargate
@@ -56,8 +64,8 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
 		Family:      aws.String(dp.ECS.DefinitionName),
 		TaskRoleArn: dp.TaskRoleARN,
 		NetworkMode: aws.String(ecs.NetworkModeAwsvpc),
-		Cpu:         aws.String("256"),
-		Memory:      aws.String("512"),
+		Cpu:         aws.String(DefaultCPU),
+		Memory:      aws.String(DefaultMemory),
 		ContainerDefinitions: []*ecs.ContainerDefinition{
 			&ecs.ContainerDefinition{
 				Name:  aws.String(dp.ECS.ContainerName),
@@ -70,15 +78,11 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
 						"awslogs-stream-prefix": aws.String("ecs"),
 					},
 				},
+				Environment: convertMapToKeyValuePair(dp.Environment),
 			},
 		},
 		ExecutionRoleArn: aws.String(dp.ECS.ExecutionRoleARN),
-		Tags: []*ecs.Tag{
-			&ecs.Tag{
-				Key:   aws.String("createdBy"),
-				Value: aws.String("fargate-run-job"),
-			},
-		},
+		Tags:             convertMapToTags(dp.Tags),
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to register task definition.")
@@ -93,21 +97,21 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
 func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 
 	logrus.WithFields(logrus.Fields{
-		"ClusterName":    lp.ClusterName,
-		"TaskDefinition": lp.TaskDefinition,
+		"ClusterName":    lp.ECS.ClusterName,
+		"TaskDefinition": lp.ECS.TaskDefinition,
 	}).Info("Launch Task")
 
 	taskRes, err := lc.ecsSvc.RunTask(&ecs.RunTaskInput{
-		Cluster:        aws.String(lp.ClusterName),
+		Cluster:        aws.String(lp.ECS.ClusterName),
 		LaunchType:     aws.String(ecs.LaunchTypeFargate),
-		TaskDefinition: aws.String(lp.TaskDefinition),
+		TaskDefinition: aws.String(lp.ECS.TaskDefinition),
 		Count:          aws.Int64(1),
 		Overrides: &ecs.TaskOverride{
 			ContainerOverrides: []*ecs.ContainerOverride{
 				&ecs.ContainerOverride{
 					Cpu:         aws.Int64(lp.CPU),
 					Memory:      aws.Int64(lp.Memory),
-					Name:        aws.String(lp.ContainerName),
+					Name:        aws.String(lp.ECS.ContainerName),
 					Environment: convertMapToKeyValuePair(lp.Environment),
 				},
 			},
@@ -119,12 +123,7 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 				Subnets:        aws.StringSlice(lp.Subnets),
 			},
 		},
-		Tags: []*ecs.Tag{
-			&ecs.Tag{
-				Key:   aws.String("createdBy"),
-				Value: aws.String("fargate-run-job"),
-			},
-		},
+		Tags: convertMapToTags(lp.Tags),
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to create task.")
@@ -135,7 +134,7 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 	}).Info("Task Provisioned")
 
 	descInput := &ecs.DescribeTasksInput{
-		Cluster: aws.String(lp.ClusterName),
+		Cluster: aws.String(lp.ECS.ClusterName),
 		Tasks:   []*string{taskRes.Tasks[0].TaskArn},
 	}
 
@@ -156,4 +155,47 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 	}).Info("Describe completed Task")
 
 	return nil
+}
+
+func shortenTaskArn(taskArn *string) string {
+	tokens := strings.Split(aws.StringValue(taskArn), "/")
+	if len(tokens) == 3 {
+		return tokens[2]
+	}
+
+	return "unknown"
+}
+
+func convertMapToKeyValuePair(env map[string]string) []*ecs.KeyValuePair {
+
+	ecsEnv := []*ecs.KeyValuePair{}
+
+	// empty map is valid
+	if env == nil {
+		return ecsEnv
+	}
+
+	for k, v := range env {
+		//ecsEnv[]
+		ecsEnv = append(ecsEnv, &ecs.KeyValuePair{Name: aws.String(k), Value: aws.String(v)})
+	}
+
+	return ecsEnv
+}
+
+func convertMapToTags(tags map[string]string) []*ecs.Tag {
+
+	ecsTags := []*ecs.Tag{}
+
+	// empty map is valid
+	if tags == nil {
+		return ecsTags
+	}
+
+	for k, v := range tags {
+		//ecsEnv[]
+		ecsTags = append(ecsTags, &ecs.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+
+	return ecsTags
 }
