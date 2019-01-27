@@ -5,5 +5,5 @@ coverage.txt
 codebuid.out.yml
 /vendor
 *.swp
-test*.sh
 /example/vendor
+/*.json

@@ -21,29 +21,29 @@ type Launcher interface {
 
 // RunTaskParams used to launch container based tasks
 type RunTaskParams struct {
-	ClusterName    string
-	ServiceName    string
-	ContainerName  string
-	Environment    map[string]string
-	TaskDefinition string
-	Subnets        []string
-	CPU            int64
-	Memory         int64
+	ClusterName    string            `json:"cluster_name,omitempty"`
+	ServiceName    string            `json:"service_name,omitempty"`
+	ContainerName  string            `json:"container_name,omitempty"`
+	Environment    map[string]string `json:"environment,omitempty"`
+	TaskDefinition string            `json:"task_definition,omitempty"`
+	Subnets        []string          `json:"subnets,omitempty"`
+	CPU            int64             `json:"cpu,omitempty"`
+	Memory         int64             `json:"memory,omitempty"`
 }
 
 // ECSDefinitionParams ECS related definition parameters
 type ECSDefinitionParams struct {
-	ExecutionRoleARN string
-	DefinitionName   string
-	ContainerName    string
+	ExecutionRoleARN string `json:"execution_role_arn,omitempty"`
+	DefinitionName   string `json:"definition_name,omitempty"`
+	ContainerName    string `json:"container_name,omitempty"`
 }
 
 // DefinitionParams parameters used to build a container execution environment
 type DefinitionParams struct {
-	ECS         *ECSDefinitionParams
-	Region      string
-	TaskRoleARN *string // optional
-	Image       string
+	ECS         *ECSDefinitionParams `json:"ecs,omitempty"`
+	Region      string               `json:"region,omitempty"`
+	TaskRoleARN *string              `json:"task_role_arn,omitempty"` // optional
+	Image       string               `json:"image,omitempty"`
 }
 
 func shortenTaskArn(taskArn *string) string {
