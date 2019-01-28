@@ -52,10 +52,6 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
 		}
 	}
 
-	if dp.ECS == nil {
-		return "", ErrMissingECSParams
-	}
-
 	// register the task definition with default base memory, cpu and cwlogs groups
 	res, err := lc.ecsSvc.RegisterTaskDefinition(&ecs.RegisterTaskDefinitionInput{
 		RequiresCompatibilities: aws.StringSlice([]string{
@@ -82,7 +78,7 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
 			},
 		},
 		ExecutionRoleArn: aws.String(dp.ECS.ExecutionRoleARN),
-		Tags:             convertMapToTags(dp.Tags),
+		Tags:             convertMapToECSTags(dp.Tags),
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to register task definition.")
@@ -109,8 +105,8 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 		Overrides: &ecs.TaskOverride{
 			ContainerOverrides: []*ecs.ContainerOverride{
 				&ecs.ContainerOverride{
-					Cpu:         aws.Int64(lp.CPU),
-					Memory:      aws.Int64(lp.Memory),
+					Cpu:         aws.Int64(lp.ECS.CPU),
+					Memory:      aws.Int64(lp.ECS.Memory),
 					Name:        aws.String(lp.ECS.ContainerName),
 					Environment: convertMapToKeyValuePair(lp.Environment),
 				},
@@ -120,10 +116,10 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
 				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
-				Subnets:        aws.StringSlice(lp.Subnets),
+				Subnets:        aws.StringSlice(lp.ECS.Subnets),
 			},
 		},
-		Tags: convertMapToTags(lp.Tags),
+		Tags: convertMapToECSTags(lp.Tags),
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to create task.")
@@ -172,28 +168,26 @@ func convertMapToKeyValuePair(env map[string]string) []*ecs.KeyValuePair {
 
 	// empty map is valid
 	if env == nil {
-		return ecsEnv
+		return nil
 	}
 
 	for k, v := range env {
-		//ecsEnv[]
 		ecsEnv = append(ecsEnv, &ecs.KeyValuePair{Name: aws.String(k), Value: aws.String(v)})
 	}
 
 	return ecsEnv
 }
 
-func convertMapToTags(tags map[string]string) []*ecs.Tag {
+func convertMapToECSTags(tags map[string]string) []*ecs.Tag {
 
 	ecsTags := []*ecs.Tag{}
 
 	// empty map is valid
 	if tags == nil {
-		return ecsTags
+		return nil
 	}
 
 	for k, v := range tags {
-		//ecsEnv[]
 		ecsTags = append(ecsTags, &ecs.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
 

@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'lambda: Deployer codebuild support project which contains the role and artifact bucket, a @wolfeidau template'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: SSMAccess
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action: 'ssm:DescribeParameters'
+            Resource:
+            - '*'
+          - Effect: Allow
+            Action: 
+            - 'ssm:GetParameters'
+            - 'ssm:GetParameter'
+            Resource:
+            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*"
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+            - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*"
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:GetObjectVersion
+            Resource:
+            - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
+          - Effect: Allow
+            Action:
+            - 's3:ListAllMyBuckets'
+            Resource:
+            - '*'
+          - Effect: Allow
+            Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:GetObjectAcl
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:PutObjectAcl
+            - s3:PutObjectVersionAcl
+            Resource:
+            - !Sub "arn:aws:s3:::${ArtifactBucket}/*"
+            - !Sub "arn:aws:s3:::${ArtifactBucket}"
+
+Outputs:
+  CodeBuildRole:
+    Value: !Ref CodeBuildRole
+    Export:
+      Name: !Sub "${AWS::StackName}-CodeBuildRole"
+  ArtifactBucket:
+    Value: !Ref ArtifactBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-ArtifactBucket"

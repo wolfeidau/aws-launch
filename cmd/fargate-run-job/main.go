@@ -20,10 +20,10 @@ var (
 	app     = kingpin.New("fargate-run-job", "A command-line fargate provisioning application.")
 	verbose = app.Flag("verbose", "Verbose mode.").Short('v').Bool()
 
-	newDef  = app.Command("new-definition", "Build a new definition for an ECS task.")
+	newDef  = app.Command("new-definition", "Build a new definition.")
 	defFile = newDef.Arg("def-file", "The path to the definition file.").Required().File()
 
-	newTask    = app.Command("new-task", "Launch a new ECS task.")
+	newTask    = app.Command("new-task", "Launch a new task.")
 	launchFile = newTask.Arg("launch-file", "The path to the launch parameters file.").Required().File()
 
 	dumpSchema = app.Command("dump-schema", "Write the JSON Schema to stdout.")
@@ -35,7 +35,7 @@ func main() {
 	logrus.AddHook(filename.NewHook())
 	config := aws.NewConfig()
 
-	lch := launcher.NewECSLauncher(config)
+	lch := launcher.New(config)
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case newDef.FullCommand():
@@ -53,9 +53,7 @@ func main() {
 
 		logrus.Info("valid definition supplied")
 
-		logrus.WithFields(logrus.Fields{
-			"name": ld.ECS.DefinitionName,
-		}).Info("new definition")
+		logrus.Info("new definition")
 
 		defTag, err := lch.CreateDefinition(ld)
 		if err != nil {
@@ -80,9 +78,7 @@ func main() {
 
 		logrus.Info("valid task supplied")
 
-		logrus.WithFields(logrus.Fields{
-			"name": rt.ECS.ServiceName,
-		}).Info("new task")
+		logrus.Info("new task")
 
 		err = lch.RunTask(rt)
 		if err != nil {
