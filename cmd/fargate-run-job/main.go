@@ -60,7 +60,7 @@ func main() {
 			logrus.Fatalf("failed to create definition: %v", err)
 		}
 
-		logrus.WithField("defTag", defTag).Info("created")
+		logrus.WithField("ID", defTag.ID).Info("created")
 
 	case newTask.FullCommand():
 
@@ -80,10 +80,16 @@ func main() {
 
 		logrus.Info("new task")
 
-		err = lch.RunTask(rt)
+		res, err := lch.RunTask(rt)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to launch task")
 		}
+
+		logrus.WithFields(logrus.Fields{
+			"ID": res.ID,
+			"StartTime": res.StartTime,
+			"EndTime": res.EndTime,
+		}).Info("run task complete")
 
 	case dumpSchema.FullCommand():
 

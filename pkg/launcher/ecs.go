@@ -38,7 +38,7 @@ func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
 }
 
 // CreateDefinition create a container task definition
-func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
+func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinitionResult, error) {
 
 	_, err := lc.cwlogsSvc.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(fmt.Sprintf("/ecs/fargate/%s", dp.ECS.DefinitionName)),
@@ -48,7 +48,7 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
 	})
 	if err, ok := err.(awserr.Error); ok {
 		if err.Code() != "ResourceAlreadyExistsException" {
-			return "", errors.Wrap(err, "create log group failed.")
+			return nil, errors.Wrap(err, "create log group failed.")
 		}
 	}
 
@@ -81,16 +81,18 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
 		Tags:             convertMapToECSTags(dp.Tags),
 	})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to register task definition.")
+		return nil, errors.Wrap(err, "failed to register task definition.")
 	}
 
 	logrus.WithField("result", res).Debug("Register Task Definition")
 
-	return fmt.Sprintf("%s:%d", aws.StringValue(res.TaskDefinition.Family), aws.Int64Value(res.TaskDefinition.Revision)), nil
+	return &CreateDefinitionResult{
+		ID: fmt.Sprintf("%s:%d", aws.StringValue(res.TaskDefinition.Family), aws.Int64Value(res.TaskDefinition.Revision)),
+	}, nil
 }
 
 // RunTask run a container task and monitor it till completion
-func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
+func (lc *ECSLauncher) RunTask(lp *RunTaskParams) (*RunTaskResult, error) {
 
 	logrus.WithFields(logrus.Fields{
 		"ClusterName":    lp.ECS.ClusterName,
@@ -122,7 +124,7 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 		Tags: convertMapToECSTags(lp.Tags),
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to create task.")
+		return nil, errors.Wrap(err, "failed to create task.")
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -136,12 +138,12 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 
 	err = lc.ecsSvc.WaitUntilTasksStopped(descInput)
 	if err != nil {
-		return errors.Wrap(err, "failed to check stopped task.")
+		return nil, errors.Wrap(err, "failed to check stopped task.")
 	}
 
 	descRes, err := lc.ecsSvc.DescribeTasks(descInput)
 	if err != nil {
-		return errors.Wrap(err, "failed to describe task.")
+		return nil, errors.Wrap(err, "failed to describe task.")
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -150,7 +152,22 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) error {
 		"StoppedReason": aws.StringValue(descRes.Tasks[0].StoppedReason),
 	}).Info("Describe completed Task")
 
-	return nil
+	res := &RunTaskResult{
+		ID: aws.StringValue(descRes.Tasks[0].TaskArn),
+		StartTime: descRes.Tasks[0].StartedAt,
+		EndTime: descRes.Tasks[0].StoppedAt,
+		Successful: false,
+		ECS: &RunTaskECSResult{
+			TaskArn: aws.StringValue(descRes.Tasks[0].TaskArn),
+			TaskID:        shortenTaskArn(descRes.Tasks[0].TaskArn),
+		},
+	}
+
+	if aws.StringValue(descRes.Tasks[0].StopCode) == "EssentialContainerExited" {
+		res.Successful = true
+	}
+
+	return res, nil
 }
 
 func shortenTaskArn(taskArn *string) string {

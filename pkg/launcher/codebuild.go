@@ -33,7 +33,7 @@ func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
 }
 
 // CreateDefinition create a codebuild job for this definition and return the ARN of this job
-func (cbl *CodeBuildLauncher) CreateDefinition(dp *DefinitionParams) (string, error) {
+func (cbl *CodeBuildLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinitionResult, error) {
 
 	logGroupName := fmt.Sprintf("/aws/codebuild/%s", dp.Codebuild.ProjectName)
 
@@ -45,7 +45,7 @@ func (cbl *CodeBuildLauncher) CreateDefinition(dp *DefinitionParams) (string, er
 	})
 	if err, ok := err.(awserr.Error); ok {
 		if err.Code() != "ResourceAlreadyExistsException" {
-			return "", errors.Wrap(err, "create log group failed.")
+			return nil, errors.Wrap(err, "create log group failed.")
 		}
 	}
 
@@ -76,14 +76,16 @@ func (cbl *CodeBuildLauncher) CreateDefinition(dp *DefinitionParams) (string, er
 		Tags: convertMapToCodebuildTags(dp.Tags),
 	})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to register project.")
+		return nil, errors.Wrap(err, "failed to register project.")
 	}
 
-	return aws.StringValue(res.Project.Arn), nil
+	return &CreateDefinitionResult{
+		ID: aws.StringValue(res.Project.Arn),
+	}, nil
 }
 
 // RunTask run a container task and monitor it till completion
-func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) error {
+func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) (*RunTaskResult, error) {
 
 	res, err := cbl.codeBuildSvc.StartBuild(&codebuild.StartBuildInput{
 		ProjectName:                  aws.String(rt.Codebuild.ProjectName),
@@ -94,7 +96,7 @@ func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) error {
 		ServiceRoleOverride:          rt.Codebuild.ServiceRole,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to start build.")
+		return nil, errors.Wrap(err, "failed to start build.")
 	}
 
 	params := &codebuild.BatchGetBuildsInput{
@@ -103,12 +105,12 @@ func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) error {
 
 	err = cbl.waitUntilTasksStoppedWithContext(context.Background(), params)
 	if err != nil {
-		return errors.Wrap(err, "failed to start build.")
+		return nil, errors.Wrap(err, "failed to start build.")
 	}
 
 	getBuildRes, err := cbl.codeBuildSvc.BatchGetBuilds(params)
 	if err != nil {
-		return errors.Wrap(err, "failed to start build.")
+		return nil, errors.Wrap(err, "failed to start build.")
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -118,7 +120,22 @@ func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) error {
 		"StopTime":      aws.TimeValue(getBuildRes.Builds[0].EndTime),
 	}).Info("Describe completed Task")
 
-	return nil
+	taskRes :=  &RunTaskResult{
+		ID: aws.StringValue(getBuildRes.Builds[0].Arn),
+		StartTime: getBuildRes.Builds[0].StartTime,
+		EndTime: getBuildRes.Builds[0].EndTime,
+		CodeBuild: &RunTaskCodebuildResult{
+			BuildArn: aws.StringValue(getBuildRes.Builds[0].Arn),
+			BuildStatus: aws.StringValue(getBuildRes.Builds[0].BuildStatus),
+		},
+		Successful: false,
+	}
+
+	if aws.StringValue(getBuildRes.Builds[0].BuildStatus) == "SUCCEEDED" {
+		taskRes.Successful = false
+	}
+
+	return taskRes, nil
 }
 
 func (cbl *CodeBuildLauncher) waitUntilTasksStoppedWithContext(ctx aws.Context, input *codebuild.BatchGetBuildsInput, opts ...request.WaiterOption) error {

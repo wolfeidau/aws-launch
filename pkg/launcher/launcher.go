@@ -1,6 +1,8 @@
 package launcher
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/wolfeidau/fargate-run-job/pkg/valid"
 )
@@ -14,8 +16,30 @@ var (
 
 // Launcher build the definition, then launch a container based task
 type Launcher interface {
-	CreateDefinition(*DefinitionParams) (string, error)
-	RunTask(*RunTaskParams) error
+	CreateDefinition(*DefinitionParams) (*CreateDefinitionResult, error)
+	RunTask(*RunTaskParams) (*RunTaskResult, error)
+}
+
+// RunTaskResult summarsied result of the launched task
+type RunTaskResult struct {
+	ECS        *RunTaskECSResult
+	CodeBuild  *RunTaskCodebuildResult
+	ID         string
+	Successful bool
+	StartTime  *time.Time
+	EndTime    *time.Time
+}
+
+// RunTaskECSResult ecs related result information
+type RunTaskECSResult struct {
+	TaskArn string
+	TaskID  string
+}
+
+// RunTaskCodebuildResult codebuild related result information
+type RunTaskCodebuildResult struct {
+	BuildArn    string
+	BuildStatus string
 }
 
 // RunTaskParams used to launch container based tasks
@@ -85,6 +109,11 @@ type DefinitionParams struct {
 	Image       string                     `json:"image,omitempty" jsonschema:"required"`
 	Environment map[string]string          `json:"environment,omitempty"`
 	Tags        map[string]string          `json:"tags,omitempty"`
+}
+
+// CreateDefinitionResult the results from create definition
+type CreateDefinitionResult struct {
+	ID string
 }
 
 // Valid validate input structure of definition params
