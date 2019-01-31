@@ -99,7 +99,51 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) (*RunTaskResult, error) {
 		"TaskDefinition": lp.ECS.TaskDefinition,
 	}).Info("Launch Task")
 
-	taskRes, err := lc.ecsSvc.RunTask(&ecs.RunTaskInput{
+	runRes, err := lc.RunTaskAsync(&RunTaskAsyncParams{
+		ECS: lp.ECS,
+		Environment: lp.Environment,
+		Tags: lp.Tags,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create task.")
+	}
+
+	waitRes, err := lc.WaitForTask(&WaitForTaskParams{
+		ECS: lp.ECS,
+		ID: runRes.ID,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to wait for task.")
+	}
+
+	getRes, err := lc.GetTaskStatus(&GetTaskStatusParams{
+		ECS: lp.ECS,
+		ID: waitRes.ID,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get task.")
+	}
+
+	taskRes := &BaseTaskResult{
+		ID: getRes.ID,
+		StartTime: getRes.StartTime,
+		EndTime: getRes.EndTime,
+		Successful: getRes.Successful,
+		ECS: getRes.ECS,
+	}
+
+	return &RunTaskResult{taskRes}, nil
+}
+
+// RunTaskAsync run a container task (async)
+func (lc *ECSLauncher) RunTaskAsync(lp *RunTaskAsyncParams) (*RunTaskAsyncResult, error) {
+
+	logrus.WithFields(logrus.Fields{
+		"ClusterName":    lp.ECS.ClusterName,
+		"TaskDefinition": lp.ECS.TaskDefinition,
+	}).Info("Launch Task")
+
+	runRes, err := lc.ecsSvc.RunTask(&ecs.RunTaskInput{
 		Cluster:        aws.String(lp.ECS.ClusterName),
 		LaunchType:     aws.String(ecs.LaunchTypeFargate),
 		TaskDefinition: aws.String(lp.ECS.TaskDefinition),
@@ -128,19 +172,38 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) (*RunTaskResult, error) {
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"TaskID": shortenTaskArn(taskRes.Tasks[0].TaskArn),
+		"TaskID": shortenTaskArn(runRes.Tasks[0].TaskArn),
 	}).Info("Task Provisioned")
 
-	descInput := &ecs.DescribeTasksInput{
-		Cluster: aws.String(lp.ECS.ClusterName),
-		Tasks:   []*string{taskRes.Tasks[0].TaskArn},
+	taskRes := &BaseTaskResult{
+		ID: aws.StringValue(runRes.Tasks[0].TaskArn),
 	}
 
-	err = lc.ecsSvc.WaitUntilTasksStopped(descInput)
+	return &RunTaskAsyncResult{taskRes}, nil
+}
+
+// WaitForTask wait for task to complete
+func (lc *ECSLauncher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskResult, error) {
+
+	descInput := &ecs.DescribeTasksInput{
+		Cluster: aws.String(wft.ECS.ClusterName),
+		Tasks:   []*string{aws.String(wft.ID)},
+	}
+
+	err := lc.ecsSvc.WaitUntilTasksStopped(descInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to check stopped task.")
 	}
 
+	return &WaitForTaskResult{ID: wft.ID}, nil
+}
+
+// GetTaskStatus get task status
+func (lc *ECSLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResult, error) {
+	descInput := &ecs.DescribeTasksInput{
+		Cluster: aws.String(gts.ECS.ClusterName),
+		Tasks:   []*string{aws.String(gts.ID)},
+	}
 	descRes, err := lc.ecsSvc.DescribeTasks(descInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to describe task.")
@@ -152,22 +215,22 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) (*RunTaskResult, error) {
 		"StoppedReason": aws.StringValue(descRes.Tasks[0].StoppedReason),
 	}).Info("Describe completed Task")
 
-	res := &RunTaskResult{
-		ID: aws.StringValue(descRes.Tasks[0].TaskArn),
-		StartTime: descRes.Tasks[0].StartedAt,
-		EndTime: descRes.Tasks[0].StoppedAt,
+	taskRes := &BaseTaskResult{
+		ID:         aws.StringValue(descRes.Tasks[0].TaskArn),
+		StartTime:  descRes.Tasks[0].StartedAt,
+		EndTime:    descRes.Tasks[0].StoppedAt,
 		Successful: false,
 		ECS: &RunTaskECSResult{
 			TaskArn: aws.StringValue(descRes.Tasks[0].TaskArn),
-			TaskID:        shortenTaskArn(descRes.Tasks[0].TaskArn),
+			TaskID:  shortenTaskArn(descRes.Tasks[0].TaskArn),
 		},
 	}
 
 	if aws.StringValue(descRes.Tasks[0].StopCode) == "EssentialContainerExited" {
-		res.Successful = true
+		taskRes.Successful = true
 	}
 
-	return res, nil
+	return &GetTaskStatusResult{taskRes}, nil
 }
 
 func shortenTaskArn(taskArn *string) string {

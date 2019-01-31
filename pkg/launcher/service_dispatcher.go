@@ -51,3 +51,51 @@ func (s *ServiceDispatcher) RunTask(rt *RunTaskParams) (*RunTaskResult, error) {
 		return nil, errors.New("unable to locate handler for service")
 	}
 }
+
+// RunTaskAsync run a task, internally this is dispatched to the correct AWS service for creation
+func (s *ServiceDispatcher) RunTaskAsync(rt *RunTaskAsyncParams) (*RunTaskAsyncResult, error) {
+	if err := rt.Valid(); err != nil {
+		return nil, err
+	}
+
+	switch {
+	case rt.ECS != nil:
+		return s.ECS.RunTaskAsync(rt)
+	case rt.Codebuild != nil:
+		return s.Codebuild.RunTaskAsync(rt)
+	default:
+		return nil, errors.New("unable to locate handler for service")
+	}
+}
+
+// GetTaskStatus get task status, internally this is dispatched to the correct AWS service for creation
+func (s *ServiceDispatcher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResult, error) {
+	// if err := gts.Valid(); err != nil {
+	// 	return nil, err
+	// }
+
+	switch {
+	case gts.ECS != nil:
+		return s.ECS.GetTaskStatus(gts)
+	case gts.Codebuild != nil:
+		return s.Codebuild.GetTaskStatus(gts)
+	default:
+		return nil, errors.New("unable to locate handler for service")
+	}
+}
+
+// WaitForTask wait for a task to complete, internally this is dispatched to the correct AWS service for creation
+func (s *ServiceDispatcher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskResult, error) {
+	// if err := wft.Valid(); err != nil {
+	// 	return nil, err
+	// }
+
+	switch {
+	case wft.ECS != nil:
+		return s.ECS.WaitForTask(wft)
+	case wft.Codebuild != nil:
+		return s.Codebuild.WaitForTask(wft)
+	default:
+		return nil, errors.New("unable to locate handler for service")
+	}
+}

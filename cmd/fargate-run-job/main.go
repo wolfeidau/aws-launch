@@ -85,10 +85,11 @@ func main() {
 			logrus.WithError(err).Fatal("failed to launch task")
 		}
 
+		elapsed := res.EndTime.Sub(*res.StartTime)
+
 		logrus.WithFields(logrus.Fields{
 			"ID": res.ID,
-			"StartTime": res.StartTime,
-			"EndTime": res.EndTime,
+			"Elapsed": fmt.Sprintf("%s", elapsed),
 		}).Info("run task complete")
 
 	case dumpSchema.FullCommand():

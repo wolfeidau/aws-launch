@@ -87,6 +87,45 @@ func (cbl *CodeBuildLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDef
 // RunTask run a container task and monitor it till completion
 func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) (*RunTaskResult, error) {
 
+	runRes, err := cbl.RunTaskAsync(&RunTaskAsyncParams{
+		Codebuild: rt.Codebuild,
+		Environment: rt.Environment,
+		Tags: rt.Tags,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create task.")
+	}
+
+	waitRes, err := cbl.WaitForTask(&WaitForTaskParams{
+		Codebuild: rt.Codebuild,
+		ID: runRes.ID,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to wait for task.")
+	}
+
+	getRes, err := cbl.GetTaskStatus(&GetTaskStatusParams{
+		Codebuild: rt.Codebuild,
+		ID: waitRes.ID,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get task.")
+	}
+
+	taskRes := &BaseTaskResult{
+		ID: getRes.ID,
+		StartTime: getRes.StartTime,
+		EndTime: getRes.EndTime,
+		Successful: getRes.Successful,
+		CodeBuild: getRes.CodeBuild,
+	}
+
+	return &RunTaskResult{taskRes}, nil
+}
+
+// RunTaskAsync run a container task and monitor it till completion
+func (cbl *CodeBuildLauncher) RunTaskAsync(rt *RunTaskAsyncParams) (*RunTaskAsyncResult, error) {
+
 	res, err := cbl.codeBuildSvc.StartBuild(&codebuild.StartBuildInput{
 		ProjectName:                  aws.String(rt.Codebuild.ProjectName),
 		EnvironmentVariablesOverride: convertMapToEnvironmentVariable(rt.Environment),
@@ -99,15 +138,18 @@ func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) (*RunTaskResult, error)
 		return nil, errors.Wrap(err, "failed to start build.")
 	}
 
+	taskRes :=  &BaseTaskResult{
+		ID: aws.StringValue(res.Build.Id),
+	}
+
+	return &RunTaskAsyncResult{taskRes}, nil
+}
+
+func (cbl *CodeBuildLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResult, error) {
+	
 	params := &codebuild.BatchGetBuildsInput{
-		Ids: []*string{res.Build.Id},
+		Ids: []*string{aws.String(gts.ID)},
 	}
-
-	err = cbl.waitUntilTasksStoppedWithContext(context.Background(), params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to start build.")
-	}
-
 	getBuildRes, err := cbl.codeBuildSvc.BatchGetBuilds(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start build.")
@@ -120,7 +162,7 @@ func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) (*RunTaskResult, error)
 		"StopTime":      aws.TimeValue(getBuildRes.Builds[0].EndTime),
 	}).Info("Describe completed Task")
 
-	taskRes :=  &RunTaskResult{
+	taskRes := &BaseTaskResult{
 		ID: aws.StringValue(getBuildRes.Builds[0].Arn),
 		StartTime: getBuildRes.Builds[0].StartTime,
 		EndTime: getBuildRes.Builds[0].EndTime,
@@ -135,7 +177,22 @@ func (cbl *CodeBuildLauncher) RunTask(rt *RunTaskParams) (*RunTaskResult, error)
 		taskRes.Successful = false
 	}
 
-	return taskRes, nil
+	return &GetTaskStatusResult{taskRes}, nil
+
+}
+
+func (cbl *CodeBuildLauncher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskResult, error) {
+
+	params := &codebuild.BatchGetBuildsInput{
+		Ids: []*string{aws.String(wft.ID)},
+	}
+
+	err := cbl.waitUntilTasksStoppedWithContext(context.Background(), params)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to start build.")
+	}
+
+	return &WaitForTaskResult{ID: wft.ID}, nil
 }
 
 func (cbl *CodeBuildLauncher) waitUntilTasksStoppedWithContext(ctx aws.Context, input *codebuild.BatchGetBuildsInput, opts ...request.WaiterOption) error {

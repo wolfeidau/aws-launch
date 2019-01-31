@@ -18,10 +18,13 @@ var (
 type Launcher interface {
 	CreateDefinition(*DefinitionParams) (*CreateDefinitionResult, error)
 	RunTask(*RunTaskParams) (*RunTaskResult, error)
+	RunTaskAsync(*RunTaskAsyncParams) (*RunTaskAsyncResult, error)
+	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
+	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
 }
 
-// RunTaskResult summarsied result of the launched task
-type RunTaskResult struct {
+// BaseTaskResult common base task result
+type BaseTaskResult struct {
 	ECS        *RunTaskECSResult
 	CodeBuild  *RunTaskCodebuildResult
 	ID         string
@@ -42,6 +45,54 @@ type RunTaskCodebuildResult struct {
 	BuildStatus string
 }
 
+// Valid validate input structure of run task params
+func (rt *BaseTaskResult) Valid() error {
+	// do we have any service params at all
+	if valid.CountOfNotNil(rt.ECS, rt.CodeBuild) == 0 {
+		return ErrMissingParams
+	}
+	// check there is only one service configuration supplied
+	if valid.OneOf(rt.ECS, rt.CodeBuild) {
+		return ErrInvalidParams
+	}
+
+	return nil
+}
+
+// GetTaskStatusParams get status task parameters
+type GetTaskStatusParams struct {
+	ID        string
+	ECS       *ECSTaskParams
+	Codebuild *CodebuildTaskParams
+}
+
+// GetTaskStatusResult get status task result
+type GetTaskStatusResult struct {
+	*BaseTaskResult
+}
+
+// WaitForTaskParams wait for task parameters
+type WaitForTaskParams struct {
+	ID        string
+	ECS       *ECSTaskParams       `json:"ecs,omitempty"`
+	Codebuild *CodebuildTaskParams `json:"codebuild,omitempty"`
+}
+
+// WaitForTaskResult wait for task parameters
+type WaitForTaskResult struct {
+	ID string
+}
+
+// RunTaskResult summarsied result of the launched task
+type RunTaskResult struct {
+	*BaseTaskResult
+}
+
+// RunTaskAsyncResult summarsied result of the launched task
+type RunTaskAsyncResult struct {
+	*BaseTaskResult
+}
+
 // RunTaskParams used to launch container based tasks
 type RunTaskParams struct {
 	ECS         *ECSTaskParams       `json:"ecs,omitempty"`
@@ -52,6 +103,28 @@ type RunTaskParams struct {
 
 // Valid validate input structure of run task params
 func (rt *RunTaskParams) Valid() error {
+	// do we have any service params at all
+	if valid.CountOfNotNil(rt.ECS, rt.Codebuild) == 0 {
+		return ErrMissingParams
+	}
+	// check there is only one service configuration supplied
+	if valid.OneOf(rt.ECS, rt.Codebuild) {
+		return ErrInvalidParams
+	}
+
+	return nil
+}
+
+// RunTaskAsyncParams used to launch container based tasks
+type RunTaskAsyncParams struct {
+	ECS         *ECSTaskParams       `json:"ecs,omitempty"`
+	Codebuild   *CodebuildTaskParams `json:"codebuild,omitempty"`
+	Environment map[string]string    `json:"environment,omitempty"`
+	Tags        map[string]string    `json:"tags,omitempty"`
+}
+
+// Valid validate input structure of run task params
+func (rt *RunTaskAsyncParams) Valid() error {
 	// do we have any service params at all
 	if valid.CountOfNotNil(rt.ECS, rt.Codebuild) == 0 {
 		return ErrMissingParams
