@@ -52,27 +52,8 @@ func (s *ServiceDispatcher) RunTask(rt *RunTaskParams) (*RunTaskResult, error) {
 	}
 }
 
-// RunTaskAsync run a task, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) RunTaskAsync(rt *RunTaskAsyncParams) (*RunTaskAsyncResult, error) {
-	if err := rt.Valid(); err != nil {
-		return nil, err
-	}
-
-	switch {
-	case rt.ECS != nil:
-		return s.ECS.RunTaskAsync(rt)
-	case rt.Codebuild != nil:
-		return s.Codebuild.RunTaskAsync(rt)
-	default:
-		return nil, errors.New("unable to locate handler for service")
-	}
-}
-
 // GetTaskStatus get task status, internally this is dispatched to the correct AWS service for creation
 func (s *ServiceDispatcher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResult, error) {
-	// if err := gts.Valid(); err != nil {
-	// 	return nil, err
-	// }
 
 	switch {
 	case gts.ECS != nil:

@@ -85,10 +85,22 @@ func main() {
 			logrus.WithError(err).Fatal("failed to launch task")
 		}
 
-		elapsed := res.EndTime.Sub(*res.StartTime)
+		waitRes, err := lch.WaitForTask(&launcher.WaitForTaskParams{
+			ID: res.ID,
+			ECS: rt.ECS,
+			Codebuild: rt.Codebuild,
+		})
+
+		getRes, err := lch.GetTaskStatus(&launcher.GetTaskStatusParams{
+			ID: waitRes.ID,
+			ECS: rt.ECS,
+			Codebuild: rt.Codebuild,
+		})
+
+		elapsed := getRes.EndTime.Sub(*getRes.StartTime)
 
 		logrus.WithFields(logrus.Fields{
-			"ID": res.ID,
+			"ID": getRes.ID,
 			"Elapsed": fmt.Sprintf("%s", elapsed),
 		}).Info("run task complete")
 

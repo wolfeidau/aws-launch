@@ -91,52 +91,8 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinition
 	}, nil
 }
 
-// RunTask run a container task and monitor it till completion
+// RunTask run a container task
 func (lc *ECSLauncher) RunTask(lp *RunTaskParams) (*RunTaskResult, error) {
-
-	logrus.WithFields(logrus.Fields{
-		"ClusterName":    lp.ECS.ClusterName,
-		"TaskDefinition": lp.ECS.TaskDefinition,
-	}).Info("Launch Task")
-
-	runRes, err := lc.RunTaskAsync(&RunTaskAsyncParams{
-		ECS: lp.ECS,
-		Environment: lp.Environment,
-		Tags: lp.Tags,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create task.")
-	}
-
-	waitRes, err := lc.WaitForTask(&WaitForTaskParams{
-		ECS: lp.ECS,
-		ID: runRes.ID,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to wait for task.")
-	}
-
-	getRes, err := lc.GetTaskStatus(&GetTaskStatusParams{
-		ECS: lp.ECS,
-		ID: waitRes.ID,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get task.")
-	}
-
-	taskRes := &BaseTaskResult{
-		ID: getRes.ID,
-		StartTime: getRes.StartTime,
-		EndTime: getRes.EndTime,
-		Successful: getRes.Successful,
-		ECS: getRes.ECS,
-	}
-
-	return &RunTaskResult{taskRes}, nil
-}
-
-// RunTaskAsync run a container task (async)
-func (lc *ECSLauncher) RunTaskAsync(lp *RunTaskAsyncParams) (*RunTaskAsyncResult, error) {
 
 	logrus.WithFields(logrus.Fields{
 		"ClusterName":    lp.ECS.ClusterName,
@@ -179,7 +135,7 @@ func (lc *ECSLauncher) RunTaskAsync(lp *RunTaskAsyncParams) (*RunTaskAsyncResult
 		ID: aws.StringValue(runRes.Tasks[0].TaskArn),
 	}
 
-	return &RunTaskAsyncResult{taskRes}, nil
+	return &RunTaskResult{taskRes}, nil
 }
 
 // WaitForTask wait for task to complete
