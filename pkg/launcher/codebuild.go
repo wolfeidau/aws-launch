@@ -32,7 +32,7 @@ func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
 	}
 }
 
-// DefineTask create a codebuild job for this definition and return the ARN of this job
+// DefineTask create or update a codebuild job for this definition and return the ARN of this job
 func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 
 	logGroupName := fmt.Sprintf("/aws/codebuild/%s", dp.Codebuild.ProjectName)
@@ -46,10 +46,26 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 	if err, ok := err.(awserr.Error); ok {
 		if err.Code() != "ResourceAlreadyExistsException" {
 			return nil, errors.Wrap(err, "create log group failed.")
+		} else {
+			logrus.WithField("name", logGroupName).Info("created cloudwatch log group")
 		}
 	}
 
-	res, err := cbl.codeBuildSvc.CreateProject(&codebuild.CreateProjectInput{
+	// just update the project to see if it already exists
+	// NOTE: currently codebuild list projects call has no filter
+	projectArn, updated, err := cbl.tryUpdateProject(dp, logGroupName)
+	if err != nil {
+		return nil, err
+	}
+	if updated {
+		logrus.WithField("projectArn", projectArn).Info("updated codebuild project")
+
+		return &DefineTaskResult{
+			ID: projectArn,
+		}, nil
+	}
+
+	createRes, err := cbl.codeBuildSvc.CreateProject(&codebuild.CreateProjectInput{
 		Name: aws.String(dp.Codebuild.ProjectName),
 		Environment: &codebuild.ProjectEnvironment{
 			ComputeType:          aws.String(dp.Codebuild.ComputeType),
@@ -79,8 +95,12 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 		return nil, errors.Wrap(err, "failed to register project.")
 	}
 
+	projectArn = aws.StringValue(createRes.Project.Arn)
+
+	logrus.WithField("projectArn", projectArn).Info("created codebuild project")
+
 	return &DefineTaskResult{
-		ID: aws.StringValue(res.Project.Arn),
+		ID: projectArn,
 	}, nil
 }
 
@@ -156,6 +176,43 @@ func (cbl *CodeBuildLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskS
 
 	return &GetTaskStatusResult{taskRes}, nil
 
+}
+
+func (cbl *CodeBuildLauncher) tryUpdateProject(dp *DefineTaskParams, logGroupName string) (string, bool, error) {
+	updateRes, err := cbl.codeBuildSvc.UpdateProject(&codebuild.UpdateProjectInput{
+		Name: aws.String(dp.Codebuild.ProjectName),
+		Environment: &codebuild.ProjectEnvironment{
+			ComputeType:          aws.String(dp.Codebuild.ComputeType),
+			Image:                aws.String(dp.Image),
+			Type:                 aws.String(codebuild.EnvironmentTypeLinuxContainer),
+			PrivilegedMode:       dp.Codebuild.PrivilegedMode,
+			EnvironmentVariables: convertMapToEnvironmentVariable(dp.Environment),
+		},
+		Artifacts: &codebuild.ProjectArtifacts{
+			Type: aws.String(codebuild.ArtifactsTypeNoArtifacts),
+		},
+		Source: &codebuild.ProjectSource{
+			Type:      aws.String(codebuild.SourceTypeNoSource),
+			Buildspec: aws.String(dp.Codebuild.Buildspec),
+		},
+		ServiceRole: aws.String(dp.Codebuild.ServiceRole),
+		LogsConfig: &codebuild.LogsConfig{
+			CloudWatchLogs: &codebuild.CloudWatchLogsConfig{
+				GroupName:  aws.String(logGroupName),
+				StreamName: aws.String("codebuild"),
+				Status:     aws.String(codebuild.LogsConfigStatusTypeEnabled),
+			},
+		},
+		Tags: convertMapToCodebuildTags(dp.Tags),
+	})
+	if err, ok := err.(awserr.Error); ok {
+		if err.Code() == "ResourceNotFoundException" {
+			return "", false, nil // skip this error as the job will be subsequently created
+		}
+		return "", false, errors.Wrap(err, "update codebuild project failed.")
+	}
+
+	return aws.StringValue(updateRes.Project.Arn), true, nil
 }
 
 func (cbl *CodeBuildLauncher) waitUntilTasksStoppedWithContext(ctx aws.Context, input *codebuild.BatchGetBuildsInput, opts ...request.WaiterOption) error {
