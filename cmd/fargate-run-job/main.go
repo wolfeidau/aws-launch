@@ -23,11 +23,11 @@ var (
 	newDef  = app.Command("new-definition", "Build a new definition.")
 	defFile = newDef.Arg("def-file", "The path to the definition file.").Required().File()
 
-	newTask    = app.Command("new-task", "Launch a new task.")
-	launchFile = newTask.Arg("launch-file", "The path to the launch parameters file.").Required().File()
+	launchTask = app.Command("launch-task", "Launch a new task.")
+	launchFile = launchTask.Arg("launch-file", "The path to the launch parameters file.").Required().File()
 
 	dumpSchema = app.Command("dump-schema", "Write the JSON Schema to stdout.")
-	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefinitionParams", "RunTaskParams")
+	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefinitionParams", "LaunchTaskParams")
 )
 
 func main() {
@@ -62,16 +62,16 @@ func main() {
 
 		logrus.WithField("ID", defTag.ID).Info("created")
 
-	case newTask.FullCommand():
+	case launchTask.FullCommand():
 
-		rt := new(launcher.RunTaskParams)
+		rt := new(launcher.LaunchTaskParams)
 
 		data, err := loadJSONFile(*launchFile, rt)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
 
-		err = validateInputFile("RunTaskParams", string(data))
+		err = validateInputFile("LaunchTaskParams", string(data))
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
@@ -80,27 +80,27 @@ func main() {
 
 		logrus.Info("new task")
 
-		res, err := lch.RunTask(rt)
+		res, err := lch.LaunchTask(rt)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to launch task")
 		}
 
 		waitRes, err := lch.WaitForTask(&launcher.WaitForTaskParams{
-			ID: res.ID,
-			ECS: rt.ECS,
+			ID:        res.ID,
+			ECS:       rt.ECS,
 			Codebuild: rt.Codebuild,
 		})
 
 		getRes, err := lch.GetTaskStatus(&launcher.GetTaskStatusParams{
-			ID: waitRes.ID,
-			ECS: rt.ECS,
+			ID:        waitRes.ID,
+			ECS:       rt.ECS,
 			Codebuild: rt.Codebuild,
 		})
 
 		elapsed := getRes.EndTime.Sub(*getRes.StartTime)
 
 		logrus.WithFields(logrus.Fields{
-			"ID": getRes.ID,
+			"ID":      getRes.ID,
 			"Elapsed": fmt.Sprintf("%s", elapsed),
 		}).Info("run task complete")
 
@@ -147,8 +147,8 @@ func getSchema(paramName string) (string, error) {
 	switch paramName {
 	case "DefinitionParams":
 		v = &launcher.DefinitionParams{}
-	case "RunTaskParams":
-		v = &launcher.RunTaskParams{}
+	case "LaunchTaskParams":
+		v = &launcher.LaunchTaskParams{}
 	}
 
 	data, err := schema.DumpSchema(v)

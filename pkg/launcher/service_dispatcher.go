@@ -36,17 +36,17 @@ func (s *ServiceDispatcher) CreateDefinition(dp *DefinitionParams) (*CreateDefin
 	}
 }
 
-// RunTask run a task, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) RunTask(rt *RunTaskParams) (*RunTaskResult, error) {
+// LaunchTask run a task, internally this is dispatched to the correct AWS service for creation
+func (s *ServiceDispatcher) LaunchTask(rt *LaunchTaskParams) (*LaunchTaskResult, error) {
 	if err := rt.Valid(); err != nil {
 		return nil, err
 	}
 
 	switch {
 	case rt.ECS != nil:
-		return s.ECS.RunTask(rt)
+		return s.ECS.LaunchTask(rt)
 	case rt.Codebuild != nil:
-		return s.Codebuild.RunTask(rt)
+		return s.Codebuild.LaunchTask(rt)
 	default:
 		return nil, errors.New("unable to locate handler for service")
 	}

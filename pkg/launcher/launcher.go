@@ -17,29 +17,29 @@ var (
 // Launcher build the definition, then launch a container based task
 type Launcher interface {
 	CreateDefinition(*DefinitionParams) (*CreateDefinitionResult, error)
-	RunTask(*RunTaskParams) (*RunTaskResult, error)
+	LaunchTask(*LaunchTaskParams) (*LaunchTaskResult, error)
 	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
 	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
 }
 
 // BaseTaskResult common base task result
 type BaseTaskResult struct {
-	ECS        *RunTaskECSResult
-	CodeBuild  *RunTaskCodebuildResult
+	ECS        *LaunchTaskECSResult
+	CodeBuild  *LaunchTaskCodebuildResult
 	ID         string
 	Successful bool
 	StartTime  *time.Time
 	EndTime    *time.Time
 }
 
-// RunTaskECSResult ecs related result information
-type RunTaskECSResult struct {
+// LaunchTaskECSResult ecs related result information
+type LaunchTaskECSResult struct {
 	TaskArn string
 	TaskID  string
 }
 
-// RunTaskCodebuildResult codebuild related result information
-type RunTaskCodebuildResult struct {
+// LaunchTaskCodebuildResult codebuild related result information
+type LaunchTaskCodebuildResult struct {
 	BuildArn    string
 	BuildStatus string
 }
@@ -82,13 +82,13 @@ type WaitForTaskResult struct {
 	ID string
 }
 
-// RunTaskResult summarsied result of the launched task
-type RunTaskResult struct {
+// LaunchTaskResult summarsied result of the launched task
+type LaunchTaskResult struct {
 	*BaseTaskResult
 }
 
-// RunTaskParams used to launch container based tasks
-type RunTaskParams struct {
+// LaunchTaskParams used to launch container based tasks
+type LaunchTaskParams struct {
 	ECS         *ECSTaskParams       `json:"ecs,omitempty"`
 	Codebuild   *CodebuildTaskParams `json:"codebuild,omitempty"`
 	Environment map[string]string    `json:"environment,omitempty"`
@@ -96,7 +96,7 @@ type RunTaskParams struct {
 }
 
 // Valid validate input structure of run task params
-func (rt *RunTaskParams) Valid() error {
+func (rt *LaunchTaskParams) Valid() error {
 	// do we have any service params at all
 	if valid.CountOfNotNil(rt.ECS, rt.Codebuild) == 0 {
 		return ErrMissingParams

@@ -40,8 +40,10 @@ func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
 // CreateDefinition create a container task definition
 func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinitionResult, error) {
 
+	logGroupName := fmt.Sprintf("/ecs/fargate/%s", dp.ECS.DefinitionName)
+
 	_, err := lc.cwlogsSvc.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
-		LogGroupName: aws.String(fmt.Sprintf("/ecs/fargate/%s", dp.ECS.DefinitionName)),
+		LogGroupName: aws.String(logGroupName),
 		Tags: map[string]*string{
 			"createdBy": aws.String("fargate-run-job"),
 		},
@@ -69,7 +71,7 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinition
 				LogConfiguration: &ecs.LogConfiguration{
 					LogDriver: aws.String(ecs.LogDriverAwslogs),
 					Options: map[string]*string{
-						"awslogs-group":         aws.String(fmt.Sprintf("/ecs/fargate/%s", dp.ECS.DefinitionName)),
+						"awslogs-group":         aws.String(logGroupName),
 						"awslogs-region":        aws.String(dp.Region),
 						"awslogs-stream-prefix": aws.String("ecs"),
 					},
@@ -91,8 +93,8 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinition
 	}, nil
 }
 
-// RunTask run a container task
-func (lc *ECSLauncher) RunTask(lp *RunTaskParams) (*RunTaskResult, error) {
+// LaunchTask run a container task
+func (lc *ECSLauncher) LaunchTask(lp *LaunchTaskParams) (*LaunchTaskResult, error) {
 
 	logrus.WithFields(logrus.Fields{
 		"ClusterName":    lp.ECS.ClusterName,
@@ -135,7 +137,7 @@ func (lc *ECSLauncher) RunTask(lp *RunTaskParams) (*RunTaskResult, error) {
 		ID: aws.StringValue(runRes.Tasks[0].TaskArn),
 	}
 
-	return &RunTaskResult{taskRes}, nil
+	return &LaunchTaskResult{taskRes}, nil
 }
 
 // WaitForTask wait for task to complete
@@ -176,7 +178,7 @@ func (lc *ECSLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusRe
 		StartTime:  descRes.Tasks[0].StartedAt,
 		EndTime:    descRes.Tasks[0].StoppedAt,
 		Successful: false,
-		ECS: &RunTaskECSResult{
+		ECS: &LaunchTaskECSResult{
 			TaskArn: aws.StringValue(descRes.Tasks[0].TaskArn),
 			TaskID:  shortenTaskArn(descRes.Tasks[0].TaskArn),
 		},
