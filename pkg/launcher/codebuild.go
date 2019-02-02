@@ -32,8 +32,8 @@ func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
 	}
 }
 
-// CreateDefinition create a codebuild job for this definition and return the ARN of this job
-func (cbl *CodeBuildLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinitionResult, error) {
+// DefineTask create a codebuild job for this definition and return the ARN of this job
+func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 
 	logGroupName := fmt.Sprintf("/aws/codebuild/%s", dp.Codebuild.ProjectName)
 
@@ -79,7 +79,7 @@ func (cbl *CodeBuildLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDef
 		return nil, errors.Wrap(err, "failed to register project.")
 	}
 
-	return &CreateDefinitionResult{
+	return &DefineTaskResult{
 		ID: aws.StringValue(res.Project.Arn),
 	}, nil
 }

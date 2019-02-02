@@ -20,14 +20,14 @@ var (
 	app     = kingpin.New("fargate-run-job", "A command-line fargate provisioning application.")
 	verbose = app.Flag("verbose", "Verbose mode.").Short('v').Bool()
 
-	newDef  = app.Command("new-definition", "Build a new definition.")
-	defFile = newDef.Arg("def-file", "The path to the definition file.").Required().File()
+	defineTask = app.Command("define-task", "Create a new definition.")
+	defFile    = defineTask.Arg("def-file", "The path to the definition file.").Required().File()
 
 	launchTask = app.Command("launch-task", "Launch a new task.")
 	launchFile = launchTask.Arg("launch-file", "The path to the launch parameters file.").Required().File()
 
 	dumpSchema = app.Command("dump-schema", "Write the JSON Schema to stdout.")
-	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefinitionParams", "LaunchTaskParams")
+	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefineTaskParams", "LaunchTaskParams")
 )
 
 func main() {
@@ -38,8 +38,8 @@ func main() {
 	lch := launcher.New(config)
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-	case newDef.FullCommand():
-		ld := new(launcher.DefinitionParams)
+	case defineTask.FullCommand():
+		ld := new(launcher.DefineTaskParams)
 
 		data, err := loadJSONFile(*defFile, ld)
 		if err != nil {
@@ -55,7 +55,7 @@ func main() {
 
 		logrus.Info("new definition")
 
-		defTag, err := lch.CreateDefinition(ld)
+		defTag, err := lch.DefineTask(ld)
 		if err != nil {
 			logrus.Fatalf("failed to create definition: %v", err)
 		}
@@ -146,7 +146,7 @@ func getSchema(paramName string) (string, error) {
 
 	switch paramName {
 	case "DefinitionParams":
-		v = &launcher.DefinitionParams{}
+		v = &launcher.DefineTaskParams{}
 	case "LaunchTaskParams":
 		v = &launcher.LaunchTaskParams{}
 	}

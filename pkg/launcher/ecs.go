@@ -37,8 +37,8 @@ func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
 	}
 }
 
-// CreateDefinition create a container task definition
-func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinitionResult, error) {
+// DefineTask create a container task definition
+func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 
 	logGroupName := fmt.Sprintf("/ecs/fargate/%s", dp.ECS.DefinitionName)
 
@@ -88,7 +88,7 @@ func (lc *ECSLauncher) CreateDefinition(dp *DefinitionParams) (*CreateDefinition
 
 	logrus.WithField("result", res).Debug("Register Task Definition")
 
-	return &CreateDefinitionResult{
+	return &DefineTaskResult{
 		ID: fmt.Sprintf("%s:%d", aws.StringValue(res.TaskDefinition.Family), aws.Int64Value(res.TaskDefinition.Revision)),
 	}, nil
 }

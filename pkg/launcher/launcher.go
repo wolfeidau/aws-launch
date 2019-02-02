@@ -16,8 +16,9 @@ var (
 
 // Launcher build the definition, then launch a container based task
 type Launcher interface {
-	CreateDefinition(*DefinitionParams) (*CreateDefinitionResult, error)
+	DefineTask(*DefineTaskParams) (*DefineTaskResult, error)
 	LaunchTask(*LaunchTaskParams) (*LaunchTaskResult, error)
+	// DefineAndLaunch(*DefineAndLaunchParams) (*CreateAndLaunchResult, error)
 	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
 	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
 }
@@ -129,15 +130,15 @@ type CodebuildTaskParams struct {
 	ServiceRole    *string `json:"service_role,omitempty"`
 }
 
-// ECSDefinitionParams ECS related definition parameters
-type ECSDefinitionParams struct {
+// ECSDefineTaskParams ECS related definition parameters
+type ECSDefineTaskParams struct {
 	ExecutionRoleARN string `json:"execution_role_arn,omitempty" jsonschema:"required"`
 	DefinitionName   string `json:"definition_name,omitempty" jsonschema:"required"`
 	ContainerName    string `json:"container_name,omitempty" jsonschema:"required"`
 }
 
-// CodebuildDefinitionParams Codebuild related definition parameters
-type CodebuildDefinitionParams struct {
+// CodebuildDefineTaskParams Codebuild related definition parameters
+type CodebuildDefineTaskParams struct {
 	ProjectName    string `json:"project_name,omitempty" jsonschema:"required"`
 	ComputeType    string `json:"compute_type,omitempty" jsonschema:"required"`
 	PrivilegedMode *bool  `json:"privileged_mode,omitempty"`
@@ -145,10 +146,10 @@ type CodebuildDefinitionParams struct {
 	ServiceRole    string `json:"service_role,omitempty" jsonschema:"required"`
 }
 
-// DefinitionParams parameters used to build a container execution environment
-type DefinitionParams struct {
-	ECS         *ECSDefinitionParams       `json:"ecs,omitempty"`
-	Codebuild   *CodebuildDefinitionParams `json:"codebuild,omitempty"`
+// DefineTaskParams parameters used to build a container execution environment
+type DefineTaskParams struct {
+	ECS         *ECSDefineTaskParams       `json:"ecs,omitempty"`
+	Codebuild   *CodebuildDefineTaskParams `json:"codebuild,omitempty"`
 	Region      string                     `json:"region,omitempty" jsonschema:"required"`
 	TaskRoleARN *string                    `json:"task_role_arn,omitempty"` // optional
 	Image       string                     `json:"image,omitempty" jsonschema:"required"`
@@ -156,13 +157,13 @@ type DefinitionParams struct {
 	Tags        map[string]string          `json:"tags,omitempty"`
 }
 
-// CreateDefinitionResult the results from create definition
-type CreateDefinitionResult struct {
+// DefineTaskResult the results from create definition
+type DefineTaskResult struct {
 	ID string
 }
 
 // Valid validate input structure of definition params
-func (dp *DefinitionParams) Valid() error {
+func (dp *DefineTaskParams) Valid() error {
 	// do we have any service params at all
 	if valid.CountOfNotNil(dp.ECS, dp.Codebuild) == 0 {
 		return ErrMissingParams
