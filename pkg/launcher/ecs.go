@@ -60,7 +60,7 @@ func (lc *ECSLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLa
 // DefineTask create a container task definition
 func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 
-	logGroupName := fmt.Sprintf("/ecs/fargate/%s", dp.ECS.DefinitionName)
+	logGroupName := fmt.Sprintf("/aws/fargate/%s", dp.ECS.DefinitionName)
 
 	_, err := lc.cwlogsSvc.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(logGroupName),
