@@ -52,6 +52,7 @@ func (lc *ECSLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLa
 	return &DefineAndLaunchResult{
 		BaseTaskResult:         launchRes.BaseTaskResult,
 		CloudwatchLogGroupName: defRes.CloudwatchLogGroupName,
+		CloudwatchStreamPrefix: defRes.CloudwatchStreamPrefix,
 		DefinitionID:           defRes.ID,
 	}, nil
 }
@@ -110,6 +111,7 @@ func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, erro
 	return &DefineTaskResult{
 		ID:                     fmt.Sprintf("%s:%d", aws.StringValue(res.TaskDefinition.Family), aws.Int64Value(res.TaskDefinition.Revision)),
 		CloudwatchLogGroupName: logGroupName,
+		CloudwatchStreamPrefix: "ecs",
 	}, nil
 }
 

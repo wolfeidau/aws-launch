@@ -48,6 +48,7 @@ func (cbl *CodeBuildLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*Defi
 	return &DefineAndLaunchResult{
 		BaseTaskResult:         launchRes.BaseTaskResult,
 		CloudwatchLogGroupName: defRes.CloudwatchLogGroupName,
+		CloudwatchStreamPrefix: defRes.CloudwatchStreamPrefix,
 		DefinitionID:           defRes.ID,
 	}, nil
 }
@@ -122,6 +123,7 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 	return &DefineTaskResult{
 		ID:                     projectArn,
 		CloudwatchLogGroupName: logGroupName,
+		CloudwatchStreamPrefix: "codebuild",
 	}, nil
 }
 

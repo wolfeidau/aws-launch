@@ -125,8 +125,9 @@ func (dlp *DefineAndLaunchParams) BuildLaunchTask(definitionID string) *LaunchTa
 // DefineAndLaunchResult define and launch result
 type DefineAndLaunchResult struct {
 	*BaseTaskResult
-	CloudwatchLogGroupName string
-	DefinitionID           string
+	CloudwatchLogGroupName string `json:"cloudwatch_log_group_name,omitempty"`
+	CloudwatchStreamPrefix string `json:"cloudwatch_stream_prefix,omitempty"`
+	DefinitionID           string `json:"definition_id,omitempty"`
 }
 
 // ECSDefineAndLaunchParams define and launch parameters for ecs
@@ -284,8 +285,9 @@ type DefineTaskParams struct {
 
 // DefineTaskResult the results from create definition
 type DefineTaskResult struct {
-	ID                     string
-	CloudwatchLogGroupName string
+	ID                     string `json:"id,omitempty"`
+	CloudwatchLogGroupName string `json:"cloudwatch_log_group_name,omitempty"`
+	CloudwatchStreamPrefix string `json:"cloudwatch_stream_prefix,omitempty"`
 }
 
 // Valid validate input structure of definition params
