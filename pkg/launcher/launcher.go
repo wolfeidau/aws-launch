@@ -69,10 +69,12 @@ func (dlp *DefineAndLaunchParams) BuildDefineTask() *DefineTaskParams {
 		}
 	}
 	if dlp.ECS != nil {
+		name := dlp.ECS.DefinitionName
+
 		dt.ECS = &ECSDefineTaskParams{
 			ExecutionRoleARN: dlp.ECS.ExecutionRoleARN,
 			DefinitionName:   dlp.ECS.DefinitionName,
-			ContainerName:    dlp.ECS.ContainerName,
+			ContainerName:    name,
 		}
 	}
 	return dt
@@ -92,10 +94,12 @@ func (dlp *DefineAndLaunchParams) BuildLaunchTask(definitionID string) *LaunchTa
 	}
 
 	if dlp.ECS != nil {
+		name := dlp.ECS.DefinitionName
+
 		lt.ECS = &ECSTaskParams{
 			ClusterName:    dlp.ECS.ClusterName,
-			ServiceName:    dlp.ECS.ServiceName,
-			ContainerName:  dlp.ECS.ContainerName,
+			ServiceName:    name,
+			ContainerName:  name,
 			TaskDefinition: definitionID,
 			CPU:            dlp.ECS.CPU,
 			Memory:         dlp.ECS.Memory,
@@ -117,9 +121,6 @@ type DefineAndLaunchResult struct {
 type ECSDefineAndLaunchParams struct {
 	DefinitionName   string   `json:"definition_name,omitempty" jsonschema:"required"`
 	ClusterName      string   `json:"cluster_name,omitempty" jsonschema:"required"`
-	ServiceName      string   `json:"service_name,omitempty" jsonschema:"required"`
-	ContainerName    string   `json:"container_name,omitempty" jsonschema:"required"`
-	TaskDefinition   string   `json:"task_definition,omitempty" jsonschema:"required"`
 	CPU              int64    `json:"cpu,omitempty" jsonschema:"required"`
 	Memory           int64    `json:"memory,omitempty" jsonschema:"required"`
 	Subnets          []string `json:"subnets,omitempty" jsonschema:"required"`

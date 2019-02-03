@@ -78,12 +78,7 @@ func main() {
 		if dlp.ECS != nil {
 			ecsParams = &launcher.ECSTaskParams{
 				ClusterName:    dlp.ECS.ClusterName,
-				ServiceName:    dlp.ECS.ServiceName,
-				ContainerName:  dlp.ECS.ContainerName,
 				TaskDefinition: res.ID,
-				CPU:            dlp.ECS.CPU,
-				Memory:         dlp.ECS.Memory,
-				Subnets:        dlp.ECS.Subnets,
 			}
 		}
 
