@@ -65,6 +65,8 @@ func GetSchema(paramName string) (string, error) {
 		v = &launcher.DefineTaskParams{}
 	case "LaunchTaskParams":
 		v = &launcher.LaunchTaskParams{}
+	case "CleanupTaskParams":
+		v = &launcher.CleanupTaskParams{}
 	}
 
 	data, err := schema.DumpSchema(v)

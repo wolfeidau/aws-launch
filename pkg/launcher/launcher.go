@@ -32,6 +32,7 @@ type Launcher interface {
 	DefineAndLaunch(*DefineAndLaunchParams) (*DefineAndLaunchResult, error)
 	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
 	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
+	CleanupTask(*CleanupTaskParams) (*CleanupTaskResult, error)
 }
 
 // DefineAndLaunchParams define and launch parameters
@@ -299,4 +300,38 @@ func (dp *DefineTaskParams) Valid() error {
 	}
 
 	return nil
+}
+
+// CleanupTaskParams cleanup definition params
+type CleanupTaskParams struct {
+	ECS       *ECSCleanupTaskParams       `json:"ecs,omitempty"`
+	Codebuild *CodebuildCleanupTaskParams `json:"codebuild,omitempty"`
+}
+
+// Valid validate input structure of definition params
+func (dp *CleanupTaskParams) Valid() error {
+	// do we have any service params at all
+	if valid.CountOfNotNil(dp.ECS, dp.Codebuild) == 0 {
+		return ErrMissingParams
+	}
+	// check there is only one service configuration supplied
+	if valid.OneOf(dp.ECS, dp.Codebuild) {
+		return ErrInvalidParams
+	}
+
+	return nil
+}
+
+// ECSCleanupTaskParams cleanup definition params for ecs
+type ECSCleanupTaskParams struct {
+	DefinitionName string `json:"definition_name,omitempty" jsonschema:"required"`
+}
+
+// CodebuildCleanupTaskParams cleanup definition params for codebuild
+type CodebuildCleanupTaskParams struct {
+	ProjectName string `json:"project_name,omitempty" jsonschema:"required"`
+}
+
+// CleanupTaskResult cleanup definition result
+type CleanupTaskResult struct {
 }

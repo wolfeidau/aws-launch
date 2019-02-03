@@ -25,6 +25,9 @@ var (
 	launchTask = app.Command("launch-task", "Launch a new task.")
 	launchFile = launchTask.Arg("launch-file", "The path to the launch parameters file.").Required().File()
 
+	cleanupTask = app.Command("cleanup-task", "Cleanup a new task.")
+	cleanupFile = cleanupTask.Arg("cleanup-file", "The path to the cleanup parameters file.").Required().File()
+
 	dumpSchema = app.Command("dump-schema", "Write the JSON Schema to stdout.")
 	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefineAndLaunchParams", "DefineTaskParams", "LaunchTaskParams")
 )
@@ -149,6 +152,31 @@ func main() {
 			"ID":      getRes.ID,
 			"Elapsed": fmt.Sprintf("%s", elapsed),
 		}).Info("run task complete")
+
+	case cleanupTask.FullCommand():
+
+		ctp := new(launcher.CleanupTaskParams)
+
+		data, err := configuration.LoadJSONFile(*cleanupFile, ctp)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to load definition file")
+		}
+
+		err = configuration.ValidateInputFile("CleanupTaskParams", string(data))
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to load definition file")
+		}
+
+		logrus.Info("valid task supplied")
+
+		logrus.Info("cleanup task")
+
+		_, err = lch.CleanupTask(ctp)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to cleanup task")
+		}
+
+		logrus.Info("cleanup task complete")
 
 	case dumpSchema.FullCommand():
 

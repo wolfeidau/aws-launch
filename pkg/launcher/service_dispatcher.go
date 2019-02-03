@@ -97,3 +97,19 @@ func (s *ServiceDispatcher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskRes
 		return nil, errors.New("unable to locate handler for service")
 	}
 }
+
+// CleanupTask clean up task definition, internally this is dispatched to the correct AWS service for creation
+func (s *ServiceDispatcher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, error) {
+	if err := ctp.Valid(); err != nil {
+		return nil, err
+	}
+
+	switch {
+	case ctp.ECS != nil:
+		return s.ECS.CleanupTask(ctp)
+	case ctp.Codebuild != nil:
+		return s.Codebuild.CleanupTask(ctp)
+	default:
+		return nil, errors.New("unable to locate handler for service")
+	}
+}

@@ -203,6 +203,18 @@ func (cbl *CodeBuildLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskS
 
 }
 
+// CleanupTask clean up codebuild project
+func (cbl *CodeBuildLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, error) {
+	_, err := cbl.codeBuildSvc.DeleteProject(&codebuild.DeleteProjectInput{
+		Name: aws.String(ctp.Codebuild.ProjectName),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to delete project.")
+	}
+
+	return &CleanupTaskResult{}, nil
+}
+
 func (cbl *CodeBuildLauncher) tryUpdateProject(dp *DefineTaskParams, logGroupName string) (string, bool, error) {
 	updateRes, err := cbl.codeBuildSvc.UpdateProject(&codebuild.UpdateProjectInput{
 		Name: aws.String(dp.Codebuild.ProjectName),

@@ -215,6 +215,18 @@ func (lc *ECSLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusRe
 	return &GetTaskStatusResult{taskRes}, nil
 }
 
+// CleanupTask clean up ecs task definition
+func (lc *ECSLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, error) {
+	_, err := lc.ecsSvc.DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
+		TaskDefinition: aws.String(ctp.ECS.DefinitionName),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to de-register definition.")
+	}
+
+	return &CleanupTaskResult{}, nil
+}
+
 func shortenTaskArn(taskArn *string) string {
 	tokens := strings.Split(aws.StringValue(taskArn), "/")
 	if len(tokens) == 3 {
