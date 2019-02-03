@@ -1,19 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/onrik/logrus/filename"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/wolfeidau/fargate-run-job/pkg/configuration"
 	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
-	"github.com/wolfeidau/fargate-run-job/pkg/schema"
-	"github.com/xeipuuv/gojsonschema"
 )
 
 var (
@@ -45,12 +41,12 @@ func main() {
 
 		dlp := new(launcher.DefineAndLaunchParams)
 
-		data, err := loadJSONFile(*oneFile, dlp)
+		data, err := configuration.LoadJSONFile(*oneFile, dlp)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
 
-		err = validateInputFile("DefineAndLaunchParams", string(data))
+		err = configuration.ValidateInputFile("DefineAndLaunchParams", string(data))
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
@@ -64,34 +60,18 @@ func main() {
 			logrus.WithError(err).Fatal("failed to launch task")
 		}
 
-		var (
-			codebuildParams *launcher.CodebuildTaskParams
-			ecsParams       *launcher.ECSTaskParams
-		)
-
-		if dlp.Codebuild != nil {
-			codebuildParams = &launcher.CodebuildTaskParams{
-				ProjectName: dlp.Codebuild.ProjectName,
-			}
-		}
-
-		if dlp.ECS != nil {
-			ecsParams = &launcher.ECSTaskParams{
-				ClusterName:    dlp.ECS.ClusterName,
-				TaskDefinition: res.ID,
-			}
-		}
+		rt := dlp.BuildLaunchTask(res.ID)
 
 		waitRes, err := lch.WaitForTask(&launcher.WaitForTaskParams{
 			ID:        res.ID,
-			ECS:       ecsParams,
-			Codebuild: codebuildParams,
+			ECS:       rt.ECS,
+			Codebuild: rt.Codebuild,
 		})
 
 		getRes, err := lch.GetTaskStatus(&launcher.GetTaskStatusParams{
 			ID:        waitRes.ID,
-			ECS:       ecsParams,
-			Codebuild: codebuildParams,
+			ECS:       rt.ECS,
+			Codebuild: rt.Codebuild,
 		})
 
 		elapsed := getRes.EndTime.Sub(*getRes.StartTime)
@@ -106,12 +86,12 @@ func main() {
 	case defineTask.FullCommand():
 		ld := new(launcher.DefineTaskParams)
 
-		data, err := loadJSONFile(*defFile, ld)
+		data, err := configuration.LoadJSONFile(*defFile, ld)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
 
-		err = validateInputFile("DefinitionParams", string(data))
+		err = configuration.ValidateInputFile("DefinitionParams", string(data))
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
@@ -131,12 +111,12 @@ func main() {
 
 		rt := new(launcher.LaunchTaskParams)
 
-		data, err := loadJSONFile(*launchFile, rt)
+		data, err := configuration.LoadJSONFile(*launchFile, rt)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
 
-		err = validateInputFile("LaunchTaskParams", string(data))
+		err = configuration.ValidateInputFile("LaunchTaskParams", string(data))
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to load definition file")
 		}
@@ -171,81 +151,11 @@ func main() {
 
 	case dumpSchema.FullCommand():
 
-		jsonStr, err := getSchema(*structName)
+		jsonStr, err := configuration.GetSchema(*structName)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed to marshal schema")
 		}
 
 		fmt.Println(jsonStr)
 	}
-}
-
-func validateInputFile(paramName string, payloadJSON string) error {
-
-	jsonStr, err := getSchema(paramName)
-	if err != nil {
-		return err
-	}
-
-	schemaLoader := gojsonschema.NewStringLoader(jsonStr)
-	documentLoader := gojsonschema.NewStringLoader(payloadJSON)
-
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		return err
-	}
-
-	if !result.Valid() {
-		for _, desc := range result.Errors() {
-			logrus.WithField("desc", desc).Warn("validation")
-		}
-
-		return errors.New("validation errors")
-	}
-
-	return nil
-}
-
-func getSchema(paramName string) (string, error) {
-	var v interface{}
-
-	switch paramName {
-	case "DefineAndLaunchParams":
-		v = &launcher.DefineAndLaunchParams{}
-	case "DefinitionParams":
-		v = &launcher.DefineTaskParams{}
-	case "LaunchTaskParams":
-		v = &launcher.LaunchTaskParams{}
-	}
-
-	data, err := schema.DumpSchema(v)
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), nil
-}
-
-func loadJSONFile(file *os.File, val interface{}) ([]byte, error) {
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read file")
-	}
-
-	err = json.Unmarshal(data, val)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal JSON file")
-	}
-
-	return data, nil
-}
-
-func emptyToNil(val *string) *string {
-	if val == nil {
-		return val
-	}
-	if *val == "" {
-		return nil
-	}
-	return val
 }
