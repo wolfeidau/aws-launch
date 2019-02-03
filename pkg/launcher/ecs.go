@@ -37,6 +37,25 @@ func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
 	}
 }
 
+// DefineAndLaunch define and launch a container in ECS
+func (lc *ECSLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLaunchResult, error) {
+	defRes, err := lc.DefineTask(dlp.BuildDefineTask())
+	if err != nil {
+		return nil, errors.Wrap(err, "define failed.")
+	}
+
+	launchRes, err := lc.LaunchTask(dlp.BuildLaunchTask(defRes.ID))
+	if err != nil {
+		return nil, errors.Wrap(err, "launch failed.")
+	}
+
+	return &DefineAndLaunchResult{
+		BaseTaskResult:         launchRes.BaseTaskResult,
+		CloudwatchLogGroupName: defRes.CloudwatchLogGroupName,
+		DefinitionID:           defRes.ID,
+	}, nil
+}
+
 // DefineTask create a container task definition
 func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 
@@ -89,7 +108,8 @@ func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, erro
 	logrus.WithField("result", res).Debug("Register Task Definition")
 
 	return &DefineTaskResult{
-		ID: fmt.Sprintf("%s:%d", aws.StringValue(res.TaskDefinition.Family), aws.Int64Value(res.TaskDefinition.Revision)),
+		ID:                     fmt.Sprintf("%s:%d", aws.StringValue(res.TaskDefinition.Family), aws.Int64Value(res.TaskDefinition.Revision)),
+		CloudwatchLogGroupName: logGroupName,
 	}, nil
 }
 

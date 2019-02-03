@@ -32,6 +32,26 @@ func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
 	}
 }
 
+// DefineAndLaunch define and launch a container in ECS
+func (cbl *CodeBuildLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLaunchResult, error) {
+
+	defRes, err := cbl.DefineTask(dlp.BuildDefineTask())
+	if err != nil {
+		return nil, errors.Wrap(err, "define failed.")
+	}
+
+	launchRes, err := cbl.LaunchTask(dlp.BuildLaunchTask(defRes.ID))
+	if err != nil {
+		return nil, errors.Wrap(err, "launch failed.")
+	}
+
+	return &DefineAndLaunchResult{
+		BaseTaskResult:         launchRes.BaseTaskResult,
+		CloudwatchLogGroupName: defRes.CloudwatchLogGroupName,
+		DefinitionID:           defRes.ID,
+	}, nil
+}
+
 // DefineTask create or update a codebuild job for this definition and return the ARN of this job
 func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 
@@ -46,9 +66,9 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 	if err, ok := err.(awserr.Error); ok {
 		if err.Code() != "ResourceAlreadyExistsException" {
 			return nil, errors.Wrap(err, "create log group failed.")
-		} else {
-			logrus.WithField("name", logGroupName).Info("created cloudwatch log group")
 		}
+
+		logrus.WithField("name", logGroupName).Info("created cloudwatch log group")
 	}
 
 	// just update the project to see if it already exists
@@ -100,7 +120,8 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 	logrus.WithField("projectArn", projectArn).Info("created codebuild project")
 
 	return &DefineTaskResult{
-		ID: projectArn,
+		ID:                     projectArn,
+		CloudwatchLogGroupName: logGroupName,
 	}, nil
 }
 

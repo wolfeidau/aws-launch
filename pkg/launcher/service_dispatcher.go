@@ -19,6 +19,23 @@ func New(cfgs ...*aws.Config) *ServiceDispatcher {
 	}
 }
 
+// DefineAndLaunch create a defintion, internally this is dispatched to the correct AWS service for creation
+func (s *ServiceDispatcher) DefineAndLaunch(dp *DefineAndLaunchParams) (*DefineAndLaunchResult, error) {
+
+	if err := dp.Valid(); err != nil {
+		return nil, err
+	}
+
+	switch {
+	case dp.ECS != nil:
+		return s.ECS.DefineAndLaunch(dp)
+	case dp.Codebuild != nil:
+		return s.Codebuild.DefineAndLaunch(dp)
+	default:
+		return nil, errors.New("unable to locate handler for service")
+	}
+}
+
 // DefineTask create a defintion, internally this is dispatched to the correct AWS service for creation
 func (s *ServiceDispatcher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 

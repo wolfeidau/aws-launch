@@ -20,6 +20,9 @@ var (
 	app     = kingpin.New("fargate-run-job", "A command-line fargate provisioning application.")
 	verbose = app.Flag("verbose", "Verbose mode.").Short('v').Bool()
 
+	oneTask = app.Command("one-task", "Create a new definition and run in one shot.")
+	oneFile = oneTask.Arg("one-file", "The path to the definition and run file.").Required().File()
+
 	defineTask = app.Command("define-task", "Create a new definition.")
 	defFile    = defineTask.Arg("def-file", "The path to the definition file.").Required().File()
 
@@ -27,7 +30,7 @@ var (
 	launchFile = launchTask.Arg("launch-file", "The path to the launch parameters file.").Required().File()
 
 	dumpSchema = app.Command("dump-schema", "Write the JSON Schema to stdout.")
-	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefineTaskParams", "LaunchTaskParams")
+	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefineAndLaunchParams", "DefineTaskParams", "LaunchTaskParams")
 )
 
 func main() {
@@ -38,6 +41,73 @@ func main() {
 	lch := launcher.New(config)
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	case oneTask.FullCommand():
+
+		dlp := new(launcher.DefineAndLaunchParams)
+
+		data, err := loadJSONFile(*oneFile, dlp)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to load definition file")
+		}
+
+		err = validateInputFile("DefineAndLaunchParams", string(data))
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to load definition file")
+		}
+
+		logrus.Info("valid task supplied")
+
+		logrus.Info("new task")
+
+		res, err := lch.DefineAndLaunch(dlp)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to launch task")
+		}
+
+		var (
+			codebuildParams *launcher.CodebuildTaskParams
+			ecsParams       *launcher.ECSTaskParams
+		)
+
+		if dlp.Codebuild != nil {
+			codebuildParams = &launcher.CodebuildTaskParams{
+				ProjectName: dlp.Codebuild.ProjectName,
+			}
+		}
+
+		if dlp.ECS != nil {
+			ecsParams = &launcher.ECSTaskParams{
+				ClusterName:    dlp.ECS.ClusterName,
+				ServiceName:    dlp.ECS.ServiceName,
+				ContainerName:  dlp.ECS.ContainerName,
+				TaskDefinition: res.ID,
+				CPU:            dlp.ECS.CPU,
+				Memory:         dlp.ECS.Memory,
+				Subnets:        dlp.ECS.Subnets,
+			}
+		}
+
+		waitRes, err := lch.WaitForTask(&launcher.WaitForTaskParams{
+			ID:        res.ID,
+			ECS:       ecsParams,
+			Codebuild: codebuildParams,
+		})
+
+		getRes, err := lch.GetTaskStatus(&launcher.GetTaskStatusParams{
+			ID:        waitRes.ID,
+			ECS:       ecsParams,
+			Codebuild: codebuildParams,
+		})
+
+		elapsed := getRes.EndTime.Sub(*getRes.StartTime)
+
+		logrus.WithFields(logrus.Fields{
+			"ID":                     getRes.ID,
+			"DefinitionID":           res.DefinitionID,
+			"CloudwatchLogGroupName": res.CloudwatchLogGroupName,
+			"Elapsed":                fmt.Sprintf("%s", elapsed),
+		}).Info("run task complete")
+
 	case defineTask.FullCommand():
 		ld := new(launcher.DefineTaskParams)
 
@@ -145,6 +215,8 @@ func getSchema(paramName string) (string, error) {
 	var v interface{}
 
 	switch paramName {
+	case "DefineAndLaunchParams":
+		v = &launcher.DefineAndLaunchParams{}
 	case "DefinitionParams":
 		v = &launcher.DefineTaskParams{}
 	case "LaunchTaskParams":
