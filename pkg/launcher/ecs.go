@@ -218,7 +218,7 @@ func (lc *ECSLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusRe
 // CleanupTask clean up ecs task definition
 func (lc *ECSLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, error) {
 	_, err := lc.ecsSvc.DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
-		TaskDefinition: aws.String(ctp.ECS.DefinitionName),
+		TaskDefinition: aws.String(ctp.ECS.TaskDefinition),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to de-register definition.")

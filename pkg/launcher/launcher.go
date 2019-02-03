@@ -324,7 +324,7 @@ func (dp *CleanupTaskParams) Valid() error {
 
 // ECSCleanupTaskParams cleanup definition params for ecs
 type ECSCleanupTaskParams struct {
-	DefinitionName string `json:"definition_name,omitempty" jsonschema:"required"`
+	TaskDefinition string `json:"task_definition,omitempty" jsonschema:"required"`
 }
 
 // CodebuildCleanupTaskParams cleanup definition params for codebuild
