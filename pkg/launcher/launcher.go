@@ -7,6 +7,17 @@ import (
 	"github.com/wolfeidau/fargate-run-job/pkg/valid"
 )
 
+const (
+	// TaskRunning task failed
+	TaskRunning = "RUNNING"
+	// TaskFailed task failed
+	TaskFailed = "FAILED"
+	// TaskStopped task stopped
+	TaskStopped = "STOPPED"
+	// TaskSucceeded task succeeded
+	TaskSucceeded = "SUCCEEDED"
+)
+
 var (
 	// ErrMissingParams missing the params required by the ecs launch
 	ErrMissingParams = errors.New("service params are missing from Definition, configure either ECS or Codebuild")
@@ -141,7 +152,7 @@ type BaseTaskResult struct {
 	ECS        *LaunchTaskECSResult
 	CodeBuild  *LaunchTaskCodebuildResult
 	ID         string
-	Successful bool
+	TaskStatus string
 	StartTime  *time.Time
 	EndTime    *time.Time
 }

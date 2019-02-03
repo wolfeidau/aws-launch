@@ -78,6 +78,7 @@ func main() {
 
 		logrus.WithFields(logrus.Fields{
 			"ID":                     getRes.ID,
+			"TaskStatus":             getRes.TaskStatus,
 			"DefinitionID":           res.DefinitionID,
 			"CloudwatchLogGroupName": res.CloudwatchLogGroupName,
 			"Elapsed":                fmt.Sprintf("%s", elapsed),

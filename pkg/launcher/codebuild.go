@@ -188,11 +188,15 @@ func (cbl *CodeBuildLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskS
 			BuildArn:    aws.StringValue(getBuildRes.Builds[0].Arn),
 			BuildStatus: aws.StringValue(getBuildRes.Builds[0].BuildStatus),
 		},
-		Successful: false,
+		TaskStatus: TaskRunning,
 	}
 
-	if aws.StringValue(getBuildRes.Builds[0].BuildStatus) == "SUCCEEDED" {
-		taskRes.Successful = false
+	if aws.BoolValue(getBuildRes.Builds[0].BuildComplete) == true {
+		if aws.StringValue(getBuildRes.Builds[0].BuildStatus) == "SUCCEEDED" {
+			taskRes.TaskStatus = TaskSucceeded
+		} else {
+			taskRes.TaskStatus = TaskFailed
+		}
 	}
 
 	return &GetTaskStatusResult{taskRes}, nil

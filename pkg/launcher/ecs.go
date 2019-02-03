@@ -197,15 +197,19 @@ func (lc *ECSLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusRe
 		ID:         aws.StringValue(descRes.Tasks[0].TaskArn),
 		StartTime:  descRes.Tasks[0].StartedAt,
 		EndTime:    descRes.Tasks[0].StoppedAt,
-		Successful: false,
+		TaskStatus: TaskRunning,
 		ECS: &LaunchTaskECSResult{
 			TaskArn: aws.StringValue(descRes.Tasks[0].TaskArn),
 			TaskID:  shortenTaskArn(descRes.Tasks[0].TaskArn),
 		},
 	}
 
-	if aws.StringValue(descRes.Tasks[0].StopCode) == "EssentialContainerExited" {
-		taskRes.Successful = true
+	if aws.StringValue(descRes.Tasks[0].LastStatus) == "STOPPED" {
+		if aws.StringValue(descRes.Tasks[0].StopCode) == "EssentialContainerExited" {
+			taskRes.TaskStatus = TaskSucceeded
+		} else {
+			taskRes.TaskStatus = TaskFailed
+		}
 	}
 
 	return &GetTaskStatusResult{taskRes}, nil
