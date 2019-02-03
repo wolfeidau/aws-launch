@@ -33,6 +33,7 @@ type Launcher interface {
 	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
 	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
 	CleanupTask(*CleanupTaskParams) (*CleanupTaskResult, error)
+	// GetTaskLogs(*GetTaskLogsParams) (*GetTaskLogsResult, error)
 }
 
 // DefineAndLaunchParams define and launch parameters
@@ -336,4 +337,46 @@ type CodebuildCleanupTaskParams struct {
 
 // CleanupTaskResult cleanup definition result
 type CleanupTaskResult struct {
+}
+
+// GetTaskLogsParams get logs task params
+type GetTaskLogsParams struct {
+	ECS       *ECSTaskLogsParams       `json:"ecs,omitempty"`
+	Codebuild *CodebuildTaskLogsParams `json:"codebuild,omitempty"`
+}
+
+// Valid validate input structure of logs params
+func (gtlp *GetTaskLogsParams) Valid() error {
+	// do we have any service params at all
+	if valid.CountOfNotNil(gtlp.ECS, gtlp.Codebuild) == 0 {
+		return ErrMissingParams
+	}
+	// check there is only one service configuration supplied
+	if valid.OneOf(gtlp.ECS, gtlp.Codebuild) {
+		return ErrInvalidParams
+	}
+
+	return nil
+}
+
+// ECSTaskLogsParams logs params for ecs
+type ECSTaskLogsParams struct {
+	DefinitionName string `json:"definition_name,omitempty" jsonschema:"required"`
+	TaskARN        string `json:"task_arn,omitempty" jsonschema:"required"`
+}
+
+// CodebuildTaskLogsParams logs params for codebuild
+type CodebuildTaskLogsParams struct {
+	TaskID string `json:"task_id,omitempty" jsonschema:"required"`
+}
+
+// GetTaskLogsResult get logs task result
+type GetTaskLogsResult struct {
+	LogLines []LogLine `json:"log_lines,omitempty"`
+}
+
+// LogLine logs data
+type LogLine struct {
+	Timestamp time.Time `json:"timestamp,omitempty"`
+	Message   string    `json:"message,omitempty"`
 }

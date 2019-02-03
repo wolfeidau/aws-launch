@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
 )
 
 const (
@@ -24,16 +25,18 @@ const (
 
 // ECSLauncher used to launch containers in ECS, specifically fargate
 type ECSLauncher struct {
-	ecsSvc    ecsiface.ECSAPI
-	cwlogsSvc cloudwatchlogsiface.CloudWatchLogsAPI
+	ecsSvc       ecsiface.ECSAPI
+	cwlogsSvc    cloudwatchlogsiface.CloudWatchLogsAPI
+	cwlogsReader *cwlogs.CloudwatchLogsReader
 }
 
 // NewECSLauncher create a new launcher
 func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
 	sess := session.New(cfgs...)
 	return &ECSLauncher{
-		ecsSvc:    ecs.New(sess),
-		cwlogsSvc: cloudwatchlogs.New(sess),
+		ecsSvc:       ecs.New(sess),
+		cwlogsSvc:    cloudwatchlogs.New(sess),
+		cwlogsReader: cwlogs.NewCloudwatchLogsReader(cfgs...),
 	}
 }
 
@@ -227,6 +230,17 @@ func (lc *ECSLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, 
 	}
 
 	return &CleanupTaskResult{}, nil
+}
+
+// GetTaskLogs get task logs
+func (lc *ECSLauncher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogsResult, error) {
+	taskID := shortenTaskArn(aws.String(gtlp.ECS.TaskARN))
+	logGroupName := fmt.Sprintf("/aws/fargate/%s", gtlp.ECS.DefinitionName)
+	streamName := fmt.Sprintf("%s/%s/%s", "ecs", taskID, gtlp.ECS.DefinitionName)
+
+	lc.cwlogsReader.ReadLogs(logGroupName, streamName, "")
+
+	return &GetTaskLogsResult{}, nil
 }
 
 func shortenTaskArn(taskArn *string) string {
