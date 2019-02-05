@@ -113,3 +113,19 @@ func (s *ServiceDispatcher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskRes
 		return nil, errors.New("unable to locate handler for service")
 	}
 }
+
+// GetTaskLogs get the logs for a task, internally this is dispatched to the correct AWS service for creation
+func (s *ServiceDispatcher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogsResult, error) {
+	if err := gtlp.Valid(); err != nil {
+		return nil, err
+	}
+
+	switch {
+	case gtlp.ECS != nil:
+		return s.ECS.GetTaskLogs(gtlp)
+	case gtlp.Codebuild != nil:
+		return s.Codebuild.GetTaskLogs(gtlp)
+	default:
+		return nil, errors.New("unable to locate handler for service")
+	}
+}

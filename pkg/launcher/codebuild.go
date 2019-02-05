@@ -15,12 +15,22 @@ import (
 	"github.com/aws/aws-sdk-go/service/codebuild/codebuildiface"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
+)
+
+const (
+	// CodebuildStreamPrefix the prefix used in the cloudwatch log stream name
+	CodebuildStreamPrefix = "codebuild"
+
+	// CodebuildLogGroupFormat the name format for cloudwatch log group names
+	CodebuildLogGroupFormat = "/aws/codebuild/%s"
 )
 
 // CodeBuildLauncher used to launch containers in CodeBuild
 type CodeBuildLauncher struct {
 	codeBuildSvc codebuildiface.CodeBuildAPI
 	cwlogsSvc    cloudwatchlogsiface.CloudWatchLogsAPI
+	cwlogsReader *cwlogs.CloudwatchLogsReader
 }
 
 // NewCodeBuildLauncher create a new launcher
@@ -29,6 +39,7 @@ func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
 	return &CodeBuildLauncher{
 		codeBuildSvc: codebuild.New(sess),
 		cwlogsSvc:    cloudwatchlogs.New(sess),
+		cwlogsReader: cwlogs.NewCloudwatchLogsReader(cfgs...),
 	}
 }
 
@@ -56,7 +67,7 @@ func (cbl *CodeBuildLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*Defi
 // DefineTask create or update a codebuild job for this definition and return the ARN of this job
 func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 
-	logGroupName := fmt.Sprintf("/aws/codebuild/%s", dp.Codebuild.ProjectName)
+	logGroupName := fmt.Sprintf(CodebuildLogGroupFormat, dp.Codebuild.ProjectName)
 
 	_, err := cbl.cwlogsSvc.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(logGroupName),
@@ -106,7 +117,7 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 		LogsConfig: &codebuild.LogsConfig{
 			CloudWatchLogs: &codebuild.CloudWatchLogsConfig{
 				GroupName:  aws.String(logGroupName),
-				StreamName: aws.String("codebuild"),
+				StreamName: aws.String(CodebuildStreamPrefix),
 				Status:     aws.String(codebuild.LogsConfigStatusTypeEnabled),
 			},
 		},
@@ -215,6 +226,25 @@ func (cbl *CodeBuildLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskR
 	}
 
 	return &CleanupTaskResult{}, nil
+}
+
+// GetTaskLogs get task logs
+func (cbl *CodeBuildLauncher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogsResult, error) {
+
+	logGroupName := fmt.Sprintf(CodebuildLogGroupFormat, gtlp.Codebuild.ProjectName)
+	streamName := fmt.Sprintf("%s/%s", CodebuildStreamPrefix, gtlp.Codebuild.TaskID)
+
+	res, err := cbl.cwlogsReader.ReadLogs(&cwlogs.ReadLogsParams{
+		GroupName:  logGroupName,
+		StreamName: streamName,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to retrieve logs for task.")
+	}
+
+	return &GetTaskLogsResult{
+		LogLines: res.LogLines,
+	}, nil
 }
 
 func (cbl *CodeBuildLauncher) tryUpdateProject(dp *DefineTaskParams, logGroupName string) (string, bool, error) {

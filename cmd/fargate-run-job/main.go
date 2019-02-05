@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/aws/aws-sdk-go/aws"
@@ -27,6 +28,9 @@ var (
 
 	cleanupTask = app.Command("cleanup-task", "Cleanup a new task.")
 	cleanupFile = cleanupTask.Arg("cleanup-file", "The path to the cleanup parameters file.").Required().File()
+
+	getTaskLogs     = app.Command("get-task-logs", "Get logs for task.")
+	getTaskLogsFile = getTaskLogs.Arg("get-task-logs", "The path to the get task logs parameters file.").Required().File()
 
 	dumpSchema = app.Command("dump-schema", "Write the JSON Schema to stdout.")
 	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefineAndLaunchParams", "DefineTaskParams", "LaunchTaskParams")
@@ -177,6 +181,33 @@ func main() {
 		}
 
 		logrus.Info("cleanup task complete")
+
+	case getTaskLogs.FullCommand():
+
+		gtlp := new(launcher.GetTaskLogsParams)
+
+		data, err := configuration.LoadJSONFile(*getTaskLogsFile, gtlp)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to load definition file")
+		}
+
+		err = configuration.ValidateInputFile("GetTaskLogsParams", string(data))
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to load definition file")
+		}
+
+		logrus.Info("valid task supplied")
+
+		logrus.Info("get task logs")
+
+		getTaskLogsRes, err := lch.GetTaskLogs(gtlp)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to cleanup task")
+		}
+
+		for _, logLine := range getTaskLogsRes.LogLines {
+			fmt.Printf("%s::%s\n", logLine.Timestamp.Format(time.RFC3339Nano), logLine.Message)
+		}
 
 	case dumpSchema.FullCommand():
 

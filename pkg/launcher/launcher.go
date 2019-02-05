@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
 	"github.com/wolfeidau/fargate-run-job/pkg/valid"
 )
 
@@ -33,7 +34,7 @@ type Launcher interface {
 	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
 	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
 	CleanupTask(*CleanupTaskParams) (*CleanupTaskResult, error)
-	// GetTaskLogs(*GetTaskLogsParams) (*GetTaskLogsResult, error)
+	GetTaskLogs(*GetTaskLogsParams) (*GetTaskLogsResult, error)
 }
 
 // DefineAndLaunchParams define and launch parameters
@@ -367,16 +368,11 @@ type ECSTaskLogsParams struct {
 
 // CodebuildTaskLogsParams logs params for codebuild
 type CodebuildTaskLogsParams struct {
-	TaskID string `json:"task_id,omitempty" jsonschema:"required"`
+	ProjectName string `json:"project_name,omitempty" jsonschema:"required"`
+	TaskID      string `json:"task_id,omitempty" jsonschema:"required"`
 }
 
 // GetTaskLogsResult get logs task result
 type GetTaskLogsResult struct {
-	LogLines []LogLine `json:"log_lines,omitempty"`
-}
-
-// LogLine logs data
-type LogLine struct {
-	Timestamp time.Time `json:"timestamp,omitempty"`
-	Message   string    `json:"message,omitempty"`
+	LogLines []*cwlogs.LogLine `json:"log_lines,omitempty"`
 }

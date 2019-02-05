@@ -1,7 +1,7 @@
 package cwlogs
 
 import (
-	"bytes"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -10,6 +10,26 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
+
+// LogLine logs data
+type LogLine struct {
+	Timestamp time.Time `json:"timestamp,omitempty"`
+	Message   string    `json:"message,omitempty"`
+}
+
+// ReadLogsParams read cloudwatch logs parameters
+type ReadLogsParams struct {
+	GroupName  string `json:"group_name,omitempty" jsonschema:"required"`
+	StreamName string `json:"stream_name,omitempty" jsonschema:"required"`
+	NextToken  *string `json:"next_token,omitempty"`
+}
+
+// ReadLogsResult read cloudwatch logs result
+type ReadLogsResult struct {
+	LogLines  []*LogLine `json:"log_lines,omitempty"`
+	NextToken *string     `json:"next_token,omitempty"`
+}
+
 
 // CloudwatchLogsReader cloudwatch log reader which uploads chunk of log data to buildkite
 type CloudwatchLogsReader struct {
@@ -25,43 +45,37 @@ func NewCloudwatchLogsReader(cfgs ...*aws.Config) *CloudwatchLogsReader {
 }
 
 // ReadLogs this reads a page of logs from cloudwatch and returns a token which will access the next page
-func (cwlr *CloudwatchLogsReader) ReadLogs(groupName string, streamName string, nextToken string) (string, []byte, error) {
+func (cwlr *CloudwatchLogsReader) ReadLogs(rlr *ReadLogsParams) (*ReadLogsResult, error) {
 
 	getlogsInput := &cloudwatchlogs.GetLogEventsInput{
-		LogGroupName:  aws.String(groupName),
-		LogStreamName: aws.String(streamName),
-	}
-
-	if nextToken != "" {
-		getlogsInput.NextToken = aws.String(nextToken)
+		LogGroupName:  aws.String(rlr.GroupName),
+		LogStreamName: aws.String(rlr.StreamName),
+		NextToken: rlr.NextToken,
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"LogGroupName":  groupName,
-		"LogStreamName": streamName,
-		"NextToken":     nextToken,
+		"LogGroupName":  rlr.GroupName,
+		"LogStreamName": rlr.StreamName,
+		"NextToken":     rlr.NextToken,
 	}).Info("GetLogEvents")
 
 	getlogsResult, err := cwlr.cwlogsSvc.GetLogEvents(getlogsInput)
 	if err != nil {
-		return "", nil, errors.Wrap(err, "failed to read logs from codebuild cloudwatch log group")
+		return nil, errors.Wrap(err, "failed to read logs from codebuild cloudwatch log group")
 	}
 
-	buf := new(bytes.Buffer)
+	// buf := new(bytes.Buffer)
+	logLines := make([]*LogLine, len(getlogsResult.Events))
 
-	for _, event := range getlogsResult.Events {
-		_, err := buf.WriteString(aws.StringValue(event.Message))
-		if err != nil {
-			return "", nil, errors.Wrap(err, "failed to append to buffer")
-		}
+	for n, event := range getlogsResult.Events {
+		logLines[n] = &LogLine{Message: aws.StringValue(event.Message), Timestamp: aws.MillisecondsTimeValue( event.Timestamp)}
 	}
 
-	nextTokenResult := nextToken
+	nextTokenResult := getlogsResult.NextForwardToken
 
-	// only update the token some events came through
-	if len(getlogsResult.Events) != 0 {
-		nextTokenResult = aws.StringValue(getlogsResult.NextForwardToken)
-	}
+	logrus.WithFields(logrus.Fields{
+		"NextToken":     nextTokenResult,
+	}).Info("GetLogEvents")
 
-	return nextTokenResult, buf.Bytes(), nil
+	return &ReadLogsResult{NextToken: nextTokenResult, LogLines: logLines}, nil
 }

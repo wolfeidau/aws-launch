@@ -21,6 +21,12 @@ const (
 	DefaultCPU = "256"
 	// DefaultMemory default memory allocation to a fargate task
 	DefaultMemory = "512"
+
+	// ECSStreamPrefix the prefix used in the ECS cloudwatch log stream name
+	ECSStreamPrefix = "ecs"
+
+	// ECSLogGroupFormat the name format for ECS cloudwatch log group names
+	ECSLogGroupFormat = "/aws/fargate/%s"
 )
 
 // ECSLauncher used to launch containers in ECS, specifically fargate
@@ -63,7 +69,7 @@ func (lc *ECSLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLa
 // DefineTask create a container task definition
 func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
 
-	logGroupName := fmt.Sprintf("/aws/fargate/%s", dp.ECS.DefinitionName)
+	logGroupName := fmt.Sprintf(ECSLogGroupFormat, dp.ECS.DefinitionName)
 
 	_, err := lc.cwlogsSvc.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(logGroupName),
@@ -96,7 +102,7 @@ func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, erro
 					Options: map[string]*string{
 						"awslogs-group":         aws.String(logGroupName),
 						"awslogs-region":        aws.String(dp.Region),
-						"awslogs-stream-prefix": aws.String("ecs"),
+						"awslogs-stream-prefix": aws.String(ECSStreamPrefix),
 					},
 				},
 				Environment: convertMapToKeyValuePair(dp.Environment),
@@ -235,12 +241,25 @@ func (lc *ECSLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, 
 // GetTaskLogs get task logs
 func (lc *ECSLauncher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogsResult, error) {
 	taskID := shortenTaskArn(aws.String(gtlp.ECS.TaskARN))
-	logGroupName := fmt.Sprintf("/aws/fargate/%s", gtlp.ECS.DefinitionName)
-	streamName := fmt.Sprintf("%s/%s/%s", "ecs", taskID, gtlp.ECS.DefinitionName)
+	logGroupName := fmt.Sprintf(ECSLogGroupFormat, gtlp.ECS.DefinitionName)
+	streamName := fmt.Sprintf("%s/%s/%s", ECSStreamPrefix, gtlp.ECS.DefinitionName, taskID)
 
-	lc.cwlogsReader.ReadLogs(logGroupName, streamName, "")
+	logrus.WithFields(logrus.Fields{
+		"group":  logGroupName,
+		"stream": streamName,
+	}).Info("ReadLogs")
 
-	return &GetTaskLogsResult{}, nil
+	res, err := lc.cwlogsReader.ReadLogs(&cwlogs.ReadLogsParams{
+		GroupName:  logGroupName,
+		StreamName: streamName,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to retrieve logs for task.")
+	}
+
+	return &GetTaskLogsResult{
+		LogLines: res.LogLines,
+	}, nil
 }
 
 func shortenTaskArn(taskArn *string) string {
