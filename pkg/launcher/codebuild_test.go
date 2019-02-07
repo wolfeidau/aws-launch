@@ -1,7 +1,6 @@
 package launcher
 
 import (
-	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -10,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/wolfeidau/fargate-run-job/mocks"
+	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
 )
 
 func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
@@ -87,8 +87,18 @@ func TestCodeBuildLauncher_GetTaskLogs(t *testing.T) {
 
 	cwlogsReader := &mocks.LogsReader{}
 
-	gt:= &GetTaskLogsParams{
+	cwlogsReader.On("ReadLogs", mock.AnythingOfType("*cwlogs.ReadLogsParams")).Return(&cwlogs.ReadLogsResult{
+		LogLines:  []*cwlogs.LogLine{&cwlogs.LogLine{Message: "whaterer"}},
+		NextToken: aws.String("f/123456789"),
+	}, nil)
+
+	gt := &GetTaskLogsParams{
 		Codebuild: &CodebuildTaskLogsParams{},
+	}
+
+	want := &GetTaskLogsResult{
+		LogLines:  []*cwlogs.LogLine{&cwlogs.LogLine{Message: "whaterer"}},
+		NextToken: aws.String("f/123456789"),
 	}
 
 	cbl := &CodeBuildLauncher{

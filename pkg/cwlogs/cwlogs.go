@@ -19,15 +19,15 @@ type LogLine struct {
 
 // ReadLogsParams read cloudwatch logs parameters
 type ReadLogsParams struct {
-	GroupName  string `json:"group_name,omitempty" jsonschema:"required"`
-	StreamName string `json:"stream_name,omitempty" jsonschema:"required"`
+	GroupName  string  `json:"group_name,omitempty" jsonschema:"required"`
+	StreamName string  `json:"stream_name,omitempty" jsonschema:"required"`
 	NextToken  *string `json:"next_token,omitempty"`
 }
 
 // ReadLogsResult read cloudwatch logs result
 type ReadLogsResult struct {
 	LogLines  []*LogLine `json:"log_lines,omitempty"`
-	NextToken *string     `json:"next_token,omitempty"`
+	NextToken *string    `json:"next_token,omitempty"`
 }
 
 // LogsReader logs reader
@@ -54,14 +54,14 @@ func (cwlr *CloudwatchLogsReader) ReadLogs(rlr *ReadLogsParams) (*ReadLogsResult
 	getlogsInput := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(rlr.GroupName),
 		LogStreamName: aws.String(rlr.StreamName),
-		NextToken: rlr.NextToken,
+		NextToken:     rlr.NextToken,
 	}
 
 	logrus.WithFields(logrus.Fields{
 		"LogGroupName":  rlr.GroupName,
 		"LogStreamName": rlr.StreamName,
 		"NextToken":     rlr.NextToken,
-	}).Info("GetLogEvents")
+	}).Debug("GetLogEvents")
 
 	getlogsResult, err := cwlr.cwlogsSvc.GetLogEvents(getlogsInput)
 	if err != nil {
@@ -72,14 +72,14 @@ func (cwlr *CloudwatchLogsReader) ReadLogs(rlr *ReadLogsParams) (*ReadLogsResult
 	logLines := make([]*LogLine, len(getlogsResult.Events))
 
 	for n, event := range getlogsResult.Events {
-		logLines[n] = &LogLine{Message: aws.StringValue(event.Message), Timestamp: aws.MillisecondsTimeValue( event.Timestamp)}
+		logLines[n] = &LogLine{Message: aws.StringValue(event.Message), Timestamp: aws.MillisecondsTimeValue(event.Timestamp)}
 	}
 
 	nextTokenResult := getlogsResult.NextForwardToken
 
 	logrus.WithFields(logrus.Fields{
-		"NextToken":     nextTokenResult,
-	}).Info("GetLogEvents")
+		"NextToken": aws.StringValue(nextTokenResult),
+	}).Debug("GetLogEvents")
 
 	return &ReadLogsResult{NextToken: nextTokenResult, LogLines: logLines}, nil
 }

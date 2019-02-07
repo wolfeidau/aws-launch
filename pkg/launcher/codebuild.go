@@ -237,13 +237,15 @@ func (cbl *CodeBuildLauncher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogs
 	res, err := cbl.cwlogsReader.ReadLogs(&cwlogs.ReadLogsParams{
 		GroupName:  logGroupName,
 		StreamName: streamName,
+		NextToken:  gtlp.NextToken,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to retrieve logs for task.")
 	}
 
 	return &GetTaskLogsResult{
-		LogLines: res.LogLines,
+		LogLines:  res.LogLines,
+		NextToken: res.NextToken,
 	}, nil
 }
 

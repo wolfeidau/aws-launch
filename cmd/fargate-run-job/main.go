@@ -205,6 +205,8 @@ func main() {
 			logrus.WithError(err).Fatal("failed to cleanup task")
 		}
 
+		logrus.WithField("NextToken", aws.StringValue(getTaskLogsRes.NextToken)).Info("GetTaskLogs result")
+
 		for _, logLine := range getTaskLogsRes.LogLines {
 			fmt.Printf("%s::%s\n", logLine.Timestamp.Format(time.RFC3339Nano), logLine.Message)
 		}

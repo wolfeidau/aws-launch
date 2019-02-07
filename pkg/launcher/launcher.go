@@ -344,6 +344,7 @@ type CleanupTaskResult struct {
 type GetTaskLogsParams struct {
 	ECS       *ECSTaskLogsParams       `json:"ecs,omitempty"`
 	Codebuild *CodebuildTaskLogsParams `json:"codebuild,omitempty"`
+	NextToken *string                  `json:"next_token,omitempty"`
 }
 
 // Valid validate input structure of logs params
@@ -374,5 +375,6 @@ type CodebuildTaskLogsParams struct {
 
 // GetTaskLogsResult get logs task result
 type GetTaskLogsResult struct {
-	LogLines []*cwlogs.LogLine `json:"log_lines,omitempty"`
+	LogLines  []*cwlogs.LogLine `json:"log_lines,omitempty"`
+	NextToken *string           `json:"next_token,omitempty"`
 }
