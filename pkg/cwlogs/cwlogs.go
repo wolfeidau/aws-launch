@@ -30,6 +30,10 @@ type ReadLogsResult struct {
 	NextToken *string     `json:"next_token,omitempty"`
 }
 
+// LogsReader logs reader
+type LogsReader interface {
+	ReadLogs(*ReadLogsParams) (*ReadLogsResult, error)
+}
 
 // CloudwatchLogsReader cloudwatch log reader which uploads chunk of log data to buildkite
 type CloudwatchLogsReader struct {

@@ -33,7 +33,7 @@ const (
 type ECSLauncher struct {
 	ecsSvc       ecsiface.ECSAPI
 	cwlogsSvc    cloudwatchlogsiface.CloudWatchLogsAPI
-	cwlogsReader *cwlogs.CloudwatchLogsReader
+	cwlogsReader cwlogs.LogsReader
 }
 
 // NewECSLauncher create a new launcher

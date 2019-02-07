@@ -30,7 +30,7 @@ const (
 type CodeBuildLauncher struct {
 	codeBuildSvc codebuildiface.CodeBuildAPI
 	cwlogsSvc    cloudwatchlogsiface.CloudWatchLogsAPI
-	cwlogsReader *cwlogs.CloudwatchLogsReader
+	cwlogsReader cwlogs.LogsReader
 }
 
 // NewCodeBuildLauncher create a new launcher
