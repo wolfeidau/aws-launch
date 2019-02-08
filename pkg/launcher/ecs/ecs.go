@@ -1,8 +1,10 @@
-package launcher
+package ecs
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -47,7 +49,7 @@ func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
 }
 
 // DefineAndLaunch define and launch a container in ECS
-func (lc *ECSLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLaunchResult, error) {
+func (lc *ECSLauncher) DefineAndLaunch(dlp *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
 	defRes, err := lc.DefineTask(dlp.BuildDefineTask())
 	if err != nil {
 		return nil, errors.Wrap(err, "define failed.")
@@ -58,7 +60,7 @@ func (lc *ECSLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLa
 		return nil, errors.Wrap(err, "launch failed.")
 	}
 
-	return &DefineAndLaunchResult{
+	return &launcher.DefineAndLaunchResult{
 		BaseTaskResult:         launchRes.BaseTaskResult,
 		CloudwatchLogGroupName: defRes.CloudwatchLogGroupName,
 		CloudwatchStreamPrefix: defRes.CloudwatchStreamPrefix,
@@ -67,7 +69,7 @@ func (lc *ECSLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLa
 }
 
 // DefineTask create a container task definition
-func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
+func (lc *ECSLauncher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
 
 	logGroupName := fmt.Sprintf(ECSLogGroupFormat, dp.ECS.DefinitionName)
 
@@ -81,6 +83,8 @@ func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, erro
 		if err.Code() != "ResourceAlreadyExistsException" {
 			return nil, errors.Wrap(err, "create log group failed.")
 		}
+
+		logrus.WithField("name", logGroupName).Info("cloudwatch log group exists")
 	}
 
 	// register the task definition with default base memory, cpu and cwlogs groups
@@ -117,7 +121,7 @@ func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, erro
 
 	logrus.WithField("result", res).Debug("Register Task Definition")
 
-	return &DefineTaskResult{
+	return &launcher.DefineTaskResult{
 		ID:                     fmt.Sprintf("%s:%d", aws.StringValue(res.TaskDefinition.Family), aws.Int64Value(res.TaskDefinition.Revision)),
 		CloudwatchLogGroupName: logGroupName,
 		CloudwatchStreamPrefix: "ecs",
@@ -125,7 +129,7 @@ func (lc *ECSLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, erro
 }
 
 // LaunchTask run a container task
-func (lc *ECSLauncher) LaunchTask(lp *LaunchTaskParams) (*LaunchTaskResult, error) {
+func (lc *ECSLauncher) LaunchTask(lp *launcher.LaunchTaskParams) (*launcher.LaunchTaskResult, error) {
 
 	logrus.WithFields(logrus.Fields{
 		"ClusterName":    lp.ECS.ClusterName,
@@ -164,15 +168,15 @@ func (lc *ECSLauncher) LaunchTask(lp *LaunchTaskParams) (*LaunchTaskResult, erro
 		"TaskID": shortenTaskArn(runRes.Tasks[0].TaskArn),
 	}).Info("Task Provisioned")
 
-	taskRes := &BaseTaskResult{
+	taskRes := &launcher.BaseTaskResult{
 		ID: aws.StringValue(runRes.Tasks[0].TaskArn),
 	}
 
-	return &LaunchTaskResult{taskRes}, nil
+	return &launcher.LaunchTaskResult{taskRes}, nil
 }
 
 // WaitForTask wait for task to complete
-func (lc *ECSLauncher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskResult, error) {
+func (lc *ECSLauncher) WaitForTask(wft *launcher.WaitForTaskParams) (*launcher.WaitForTaskResult, error) {
 
 	descInput := &ecs.DescribeTasksInput{
 		Cluster: aws.String(wft.ECS.ClusterName),
@@ -184,11 +188,11 @@ func (lc *ECSLauncher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskResult, 
 		return nil, errors.Wrap(err, "failed to check stopped task.")
 	}
 
-	return &WaitForTaskResult{ID: wft.ID}, nil
+	return &launcher.WaitForTaskResult{ID: wft.ID}, nil
 }
 
 // GetTaskStatus get task status
-func (lc *ECSLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResult, error) {
+func (lc *ECSLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launcher.GetTaskStatusResult, error) {
 	descInput := &ecs.DescribeTasksInput{
 		Cluster: aws.String(gts.ECS.ClusterName),
 		Tasks:   []*string{aws.String(gts.ID)},
@@ -204,12 +208,12 @@ func (lc *ECSLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusRe
 		"StoppedReason": aws.StringValue(descRes.Tasks[0].StoppedReason),
 	}).Info("Describe completed Task")
 
-	taskRes := &BaseTaskResult{
+	taskRes := &launcher.BaseTaskResult{
 		ID:         aws.StringValue(descRes.Tasks[0].TaskArn),
 		StartTime:  descRes.Tasks[0].StartedAt,
 		EndTime:    descRes.Tasks[0].StoppedAt,
-		TaskStatus: TaskRunning,
-		ECS: &LaunchTaskECSResult{
+		TaskStatus: launcher.TaskRunning,
+		ECS: &launcher.LaunchTaskECSResult{
 			TaskArn: aws.StringValue(descRes.Tasks[0].TaskArn),
 			TaskID:  shortenTaskArn(descRes.Tasks[0].TaskArn),
 		},
@@ -217,17 +221,17 @@ func (lc *ECSLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusRe
 
 	if aws.StringValue(descRes.Tasks[0].LastStatus) == "STOPPED" {
 		if aws.StringValue(descRes.Tasks[0].StopCode) == "EssentialContainerExited" {
-			taskRes.TaskStatus = TaskSucceeded
+			taskRes.TaskStatus = launcher.TaskSucceeded
 		} else {
-			taskRes.TaskStatus = TaskFailed
+			taskRes.TaskStatus = launcher.TaskFailed
 		}
 	}
 
-	return &GetTaskStatusResult{taskRes}, nil
+	return &launcher.GetTaskStatusResult{taskRes}, nil
 }
 
 // CleanupTask clean up ecs task definition
-func (lc *ECSLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, error) {
+func (lc *ECSLauncher) CleanupTask(ctp *launcher.CleanupTaskParams) (*launcher.CleanupTaskResult, error) {
 	_, err := lc.ecsSvc.DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
 		TaskDefinition: aws.String(ctp.ECS.TaskDefinition),
 	})
@@ -235,11 +239,11 @@ func (lc *ECSLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, 
 		return nil, errors.Wrap(err, "failed to de-register definition.")
 	}
 
-	return &CleanupTaskResult{}, nil
+	return &launcher.CleanupTaskResult{}, nil
 }
 
 // GetTaskLogs get task logs
-func (lc *ECSLauncher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogsResult, error) {
+func (lc *ECSLauncher) GetTaskLogs(gtlp *launcher.GetTaskLogsParams) (*launcher.GetTaskLogsResult, error) {
 	taskID := shortenTaskArn(aws.String(gtlp.ECS.TaskARN))
 	logGroupName := fmt.Sprintf(ECSLogGroupFormat, gtlp.ECS.DefinitionName)
 	streamName := fmt.Sprintf("%s/%s/%s", ECSStreamPrefix, gtlp.ECS.DefinitionName, taskID)
@@ -258,7 +262,7 @@ func (lc *ECSLauncher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogsResult,
 		return nil, errors.Wrap(err, "failed to retrieve logs for task.")
 	}
 
-	return &GetTaskLogsResult{
+	return &launcher.GetTaskLogsResult{
 		LogLines:  res.LogLines,
 		NextToken: res.NextToken,
 	}, nil

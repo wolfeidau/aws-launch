@@ -1,4 +1,4 @@
-package launcher
+package codebuild
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
+	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
 )
 
 const (
@@ -44,7 +45,7 @@ func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
 }
 
 // DefineAndLaunch define and launch a container in ECS
-func (cbl *CodeBuildLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*DefineAndLaunchResult, error) {
+func (cbl *CodeBuildLauncher) DefineAndLaunch(dlp *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
 
 	defRes, err := cbl.DefineTask(dlp.BuildDefineTask())
 	if err != nil {
@@ -56,7 +57,7 @@ func (cbl *CodeBuildLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*Defi
 		return nil, errors.Wrap(err, "launch failed.")
 	}
 
-	return &DefineAndLaunchResult{
+	return &launcher.DefineAndLaunchResult{
 		BaseTaskResult:         launchRes.BaseTaskResult,
 		CloudwatchLogGroupName: defRes.CloudwatchLogGroupName,
 		CloudwatchStreamPrefix: defRes.CloudwatchStreamPrefix,
@@ -65,7 +66,7 @@ func (cbl *CodeBuildLauncher) DefineAndLaunch(dlp *DefineAndLaunchParams) (*Defi
 }
 
 // DefineTask create or update a codebuild job for this definition and return the ARN of this job
-func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
+func (cbl *CodeBuildLauncher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
 
 	logGroupName := fmt.Sprintf(CodebuildLogGroupFormat, dp.Codebuild.ProjectName)
 
@@ -80,7 +81,7 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 			return nil, errors.Wrap(err, "create log group failed.")
 		}
 
-		logrus.WithField("name", logGroupName).Info("created cloudwatch log group")
+		logrus.WithField("name", logGroupName).Info("cloudwatch log group exists")
 	}
 
 	// just update the project to see if it already exists
@@ -92,8 +93,10 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 	if updated {
 		logrus.WithField("projectArn", projectArn).Info("updated codebuild project")
 
-		return &DefineTaskResult{
-			ID: projectArn,
+		return &launcher.DefineTaskResult{
+			ID:                     projectArn,
+			CloudwatchLogGroupName: logGroupName,
+			CloudwatchStreamPrefix: "codebuild",
 		}, nil
 	}
 
@@ -131,7 +134,7 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 
 	logrus.WithField("projectArn", projectArn).Info("created codebuild project")
 
-	return &DefineTaskResult{
+	return &launcher.DefineTaskResult{
 		ID:                     projectArn,
 		CloudwatchLogGroupName: logGroupName,
 		CloudwatchStreamPrefix: "codebuild",
@@ -139,7 +142,7 @@ func (cbl *CodeBuildLauncher) DefineTask(dp *DefineTaskParams) (*DefineTaskResul
 }
 
 // LaunchTask run a container task and monitor it till completion
-func (cbl *CodeBuildLauncher) LaunchTask(rt *LaunchTaskParams) (*LaunchTaskResult, error) {
+func (cbl *CodeBuildLauncher) LaunchTask(rt *launcher.LaunchTaskParams) (*launcher.LaunchTaskResult, error) {
 
 	res, err := cbl.codeBuildSvc.StartBuild(&codebuild.StartBuildInput{
 		ProjectName:                  aws.String(rt.Codebuild.ProjectName),
@@ -153,15 +156,15 @@ func (cbl *CodeBuildLauncher) LaunchTask(rt *LaunchTaskParams) (*LaunchTaskResul
 		return nil, errors.Wrap(err, "failed to start build.")
 	}
 
-	taskRes := &BaseTaskResult{
+	taskRes := &launcher.BaseTaskResult{
 		ID: aws.StringValue(res.Build.Id),
 	}
 
-	return &LaunchTaskResult{taskRes}, nil
+	return &launcher.LaunchTaskResult{taskRes}, nil
 }
 
 // WaitForTask wait for task to complete
-func (cbl *CodeBuildLauncher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskResult, error) {
+func (cbl *CodeBuildLauncher) WaitForTask(wft *launcher.WaitForTaskParams) (*launcher.WaitForTaskResult, error) {
 
 	params := &codebuild.BatchGetBuildsInput{
 		Ids: []*string{aws.String(wft.ID)},
@@ -172,11 +175,11 @@ func (cbl *CodeBuildLauncher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskR
 		return nil, errors.Wrap(err, "failed to start build.")
 	}
 
-	return &WaitForTaskResult{ID: wft.ID}, nil
+	return &launcher.WaitForTaskResult{ID: wft.ID}, nil
 }
 
 // GetTaskStatus get task status
-func (cbl *CodeBuildLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResult, error) {
+func (cbl *CodeBuildLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launcher.GetTaskStatusResult, error) {
 
 	params := &codebuild.BatchGetBuildsInput{
 		Ids: []*string{aws.String(gts.ID)},
@@ -193,31 +196,31 @@ func (cbl *CodeBuildLauncher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskS
 		"StopTime":      aws.TimeValue(getBuildRes.Builds[0].EndTime),
 	}).Info("Describe completed Task")
 
-	taskRes := &BaseTaskResult{
+	taskRes := &launcher.BaseTaskResult{
 		ID:        aws.StringValue(getBuildRes.Builds[0].Arn),
 		StartTime: getBuildRes.Builds[0].StartTime,
 		EndTime:   getBuildRes.Builds[0].EndTime,
-		CodeBuild: &LaunchTaskCodebuildResult{
+		CodeBuild: &launcher.LaunchTaskCodebuildResult{
 			BuildArn:    aws.StringValue(getBuildRes.Builds[0].Arn),
 			BuildStatus: aws.StringValue(getBuildRes.Builds[0].BuildStatus),
 		},
-		TaskStatus: TaskRunning,
+		TaskStatus: launcher.TaskRunning,
 	}
 
 	if aws.BoolValue(getBuildRes.Builds[0].BuildComplete) == true {
 		if aws.StringValue(getBuildRes.Builds[0].BuildStatus) == "SUCCEEDED" {
-			taskRes.TaskStatus = TaskSucceeded
+			taskRes.TaskStatus = launcher.TaskSucceeded
 		} else {
-			taskRes.TaskStatus = TaskFailed
+			taskRes.TaskStatus = launcher.TaskFailed
 		}
 	}
 
-	return &GetTaskStatusResult{taskRes}, nil
+	return &launcher.GetTaskStatusResult{taskRes}, nil
 
 }
 
 // CleanupTask clean up codebuild project
-func (cbl *CodeBuildLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, error) {
+func (cbl *CodeBuildLauncher) CleanupTask(ctp *launcher.CleanupTaskParams) (*launcher.CleanupTaskResult, error) {
 	_, err := cbl.codeBuildSvc.DeleteProject(&codebuild.DeleteProjectInput{
 		Name: aws.String(ctp.Codebuild.ProjectName),
 	})
@@ -225,11 +228,11 @@ func (cbl *CodeBuildLauncher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskR
 		return nil, errors.Wrap(err, "failed to delete project.")
 	}
 
-	return &CleanupTaskResult{}, nil
+	return &launcher.CleanupTaskResult{}, nil
 }
 
 // GetTaskLogs get task logs
-func (cbl *CodeBuildLauncher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogsResult, error) {
+func (cbl *CodeBuildLauncher) GetTaskLogs(gtlp *launcher.GetTaskLogsParams) (*launcher.GetTaskLogsResult, error) {
 
 	logGroupName := fmt.Sprintf(CodebuildLogGroupFormat, gtlp.Codebuild.ProjectName)
 	streamName := fmt.Sprintf("%s/%s", CodebuildStreamPrefix, gtlp.Codebuild.TaskID)
@@ -243,13 +246,13 @@ func (cbl *CodeBuildLauncher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogs
 		return nil, errors.Wrap(err, "failed to retrieve logs for task.")
 	}
 
-	return &GetTaskLogsResult{
+	return &launcher.GetTaskLogsResult{
 		LogLines:  res.LogLines,
 		NextToken: res.NextToken,
 	}, nil
 }
 
-func (cbl *CodeBuildLauncher) tryUpdateProject(dp *DefineTaskParams, logGroupName string) (string, bool, error) {
+func (cbl *CodeBuildLauncher) tryUpdateProject(dp *launcher.DefineTaskParams, logGroupName string) (string, bool, error) {
 	updateRes, err := cbl.codeBuildSvc.UpdateProject(&codebuild.UpdateProjectInput{
 		Name: aws.String(dp.Codebuild.ProjectName),
 		Environment: &codebuild.ProjectEnvironment{

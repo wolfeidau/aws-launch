@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/wolfeidau/fargate-run-job/pkg/configuration"
 	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
+	"github.com/wolfeidau/fargate-run-job/pkg/launcher/service"
 )
 
 var (
@@ -41,7 +42,7 @@ func main() {
 	logrus.AddHook(filename.NewHook())
 	config := aws.NewConfig()
 
-	lch := launcher.New(config)
+	lch := service.New(config)
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 	case oneTask.FullCommand():

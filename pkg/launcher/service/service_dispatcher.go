@@ -1,26 +1,29 @@
-package launcher
+package service
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
+	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
+	"github.com/wolfeidau/fargate-run-job/pkg/launcher/codebuild"
+	"github.com/wolfeidau/fargate-run-job/pkg/launcher/ecs"
 )
 
 // ServiceDispatcher dispatches definition and launch requests to the correct backend
 type ServiceDispatcher struct {
-	ECS       Launcher
-	Codebuild Launcher
+	ECS       launcher.Launcher
+	Codebuild launcher.Launcher
 }
 
 // New create a service dispatcher with the AWS configuration overrides
 func New(cfgs ...*aws.Config) *ServiceDispatcher {
 	return &ServiceDispatcher{
-		ECS:       NewECSLauncher(cfgs...),
-		Codebuild: NewCodeBuildLauncher(cfgs...),
+		ECS:       ecs.NewECSLauncher(cfgs...),
+		Codebuild: codebuild.NewCodeBuildLauncher(cfgs...),
 	}
 }
 
 // DefineAndLaunch create a defintion, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) DefineAndLaunch(dp *DefineAndLaunchParams) (*DefineAndLaunchResult, error) {
+func (s *ServiceDispatcher) DefineAndLaunch(dp *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
 
 	if err := dp.Valid(); err != nil {
 		return nil, err
@@ -37,7 +40,7 @@ func (s *ServiceDispatcher) DefineAndLaunch(dp *DefineAndLaunchParams) (*DefineA
 }
 
 // DefineTask create a defintion, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult, error) {
+func (s *ServiceDispatcher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
 
 	if err := dp.Valid(); err != nil {
 		return nil, err
@@ -54,7 +57,7 @@ func (s *ServiceDispatcher) DefineTask(dp *DefineTaskParams) (*DefineTaskResult,
 }
 
 // LaunchTask run a task, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) LaunchTask(rt *LaunchTaskParams) (*LaunchTaskResult, error) {
+func (s *ServiceDispatcher) LaunchTask(rt *launcher.LaunchTaskParams) (*launcher.LaunchTaskResult, error) {
 	if err := rt.Valid(); err != nil {
 		return nil, err
 	}
@@ -70,7 +73,7 @@ func (s *ServiceDispatcher) LaunchTask(rt *LaunchTaskParams) (*LaunchTaskResult,
 }
 
 // GetTaskStatus get task status, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResult, error) {
+func (s *ServiceDispatcher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launcher.GetTaskStatusResult, error) {
 
 	switch {
 	case gts.ECS != nil:
@@ -83,7 +86,7 @@ func (s *ServiceDispatcher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskSta
 }
 
 // WaitForTask wait for a task to complete, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskResult, error) {
+func (s *ServiceDispatcher) WaitForTask(wft *launcher.WaitForTaskParams) (*launcher.WaitForTaskResult, error) {
 	// if err := wft.Valid(); err != nil {
 	// 	return nil, err
 	// }
@@ -99,7 +102,7 @@ func (s *ServiceDispatcher) WaitForTask(wft *WaitForTaskParams) (*WaitForTaskRes
 }
 
 // CleanupTask clean up task definition, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, error) {
+func (s *ServiceDispatcher) CleanupTask(ctp *launcher.CleanupTaskParams) (*launcher.CleanupTaskResult, error) {
 	if err := ctp.Valid(); err != nil {
 		return nil, err
 	}
@@ -115,7 +118,7 @@ func (s *ServiceDispatcher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskRes
 }
 
 // GetTaskLogs get the logs for a task, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) GetTaskLogs(gtlp *GetTaskLogsParams) (*GetTaskLogsResult, error) {
+func (s *ServiceDispatcher) GetTaskLogs(gtlp *launcher.GetTaskLogsParams) (*launcher.GetTaskLogsResult, error) {
 	if err := gtlp.Valid(); err != nil {
 		return nil, err
 	}
