@@ -21,7 +21,7 @@ func TestECSLauncher_DefineAndLaunch(t *testing.T) {
 
 	ecsSvcMock.On("RunTask", mock.AnythingOfType("*ecs.RunTaskInput")).Return(&ecs.RunTaskOutput{
 		Tasks: []*ecs.Task{
-			&ecs.Task{
+			{
 				TaskArn: aws.String("arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c"),
 			},
 		},
@@ -73,7 +73,7 @@ func TestECSLauncher_LaunchTask(t *testing.T) {
 
 	ecsSvcMock.On("RunTask", mock.AnythingOfType("*ecs.RunTaskInput")).Return(&ecs.RunTaskOutput{
 		Tasks: []*ecs.Task{
-			&ecs.Task{
+			{
 				TaskArn: aws.String("arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c"),
 			},
 		},
@@ -147,7 +147,7 @@ func TestECSLauncher_GetTaskStatus(t *testing.T) {
 
 	ecsSvcMock.On("DescribeTasks", mock.AnythingOfType("*ecs.DescribeTasksInput")).Return(&ecs.DescribeTasksOutput{
 		Tasks: []*ecs.Task{
-			&ecs.Task{
+			{
 				LastStatus: aws.String(ecs.DesiredStatusStopped),
 				StopCode:   aws.String("EssentialContainerExited"),
 				TaskArn:    aws.String("arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c"),
@@ -207,7 +207,7 @@ func TestECSLauncher_GetTaskLogs(t *testing.T) {
 	cwlogsReader := &mocks.LogsReader{}
 
 	cwlogsReader.On("ReadLogs", mock.AnythingOfType("*cwlogs.ReadLogsParams")).Return(&cwlogs.ReadLogsResult{
-		LogLines:  []*cwlogs.LogLine{&cwlogs.LogLine{Message: "whaterer"}},
+		LogLines:  []*cwlogs.LogLine{{Message: "whaterer"}},
 		NextToken: aws.String("f/123456789"),
 	}, nil)
 
@@ -216,7 +216,7 @@ func TestECSLauncher_GetTaskLogs(t *testing.T) {
 	}
 
 	want := &launcher.GetTaskLogsResult{
-		LogLines:  []*cwlogs.LogLine{&cwlogs.LogLine{Message: "whaterer"}},
+		LogLines:  []*cwlogs.LogLine{{Message: "whaterer"}},
 		NextToken: aws.String("f/123456789"),
 	}
 

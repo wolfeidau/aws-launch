@@ -144,7 +144,7 @@ func TestCodeBuildLauncher_GetTaskStatus(t *testing.T) {
 
 	codeBuildSvcMock.On("BatchGetBuilds", mock.AnythingOfType("*codebuild.BatchGetBuildsInput")).Return(&codebuild.BatchGetBuildsOutput{
 		Builds: []*codebuild.Build{
-			&codebuild.Build{
+			{
 				BuildStatus: aws.String(codebuild.StatusTypeSucceeded),
 				Arn:         aws.String("abc123"),
 			},
@@ -203,7 +203,7 @@ func TestCodeBuildLauncher_GetTaskLogs(t *testing.T) {
 	cwlogsReader := &mocks.LogsReader{}
 
 	cwlogsReader.On("ReadLogs", mock.AnythingOfType("*cwlogs.ReadLogsParams")).Return(&cwlogs.ReadLogsResult{
-		LogLines:  []*cwlogs.LogLine{&cwlogs.LogLine{Message: "whatever"}},
+		LogLines:  []*cwlogs.LogLine{{Message: "whatever"}},
 		NextToken: aws.String("f/123456789"),
 	}, nil)
 
@@ -212,7 +212,7 @@ func TestCodeBuildLauncher_GetTaskLogs(t *testing.T) {
 	}
 
 	want := &GetTaskLogsResult{
-		LogLines:  []*cwlogs.LogLine{&cwlogs.LogLine{Message: "whatever"}},
+		LogLines:  []*cwlogs.LogLine{{Message: "whatever"}},
 		NextToken: aws.String("f/123456789"),
 	}
 

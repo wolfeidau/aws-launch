@@ -22,7 +22,7 @@ func New(cfgs ...*aws.Config) *ServiceDispatcher {
 	}
 }
 
-// DefineAndLaunch create a defintion, internally this is dispatched to the correct AWS service for creation
+// DefineAndLaunch create a definition, internally this is dispatched to the correct AWS service for creation
 func (s *ServiceDispatcher) DefineAndLaunch(dp *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
 
 	if err := dp.Valid(); err != nil {
@@ -39,7 +39,7 @@ func (s *ServiceDispatcher) DefineAndLaunch(dp *launcher.DefineAndLaunchParams) 
 	}
 }
 
-// DefineTask create a defintion, internally this is dispatched to the correct AWS service for creation
+// DefineTask create a definition, internally this is dispatched to the correct AWS service for creation
 func (s *ServiceDispatcher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
 
 	if err := dp.Valid(); err != nil {

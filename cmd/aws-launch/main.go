@@ -75,12 +75,18 @@ func main() {
 			ECS:       rt.ECS,
 			Codebuild: rt.Codebuild,
 		})
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to wait for task")
+		}
 
 		getRes, err := lch.GetTaskStatus(&launcher.GetTaskStatusParams{
 			ID:        waitRes.ID,
 			ECS:       rt.ECS,
 			Codebuild: rt.Codebuild,
 		})
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to get task status")
+		}
 
 		elapsed := getRes.EndTime.Sub(*getRes.StartTime)
 
@@ -144,12 +150,18 @@ func main() {
 			ECS:       rt.ECS,
 			Codebuild: rt.Codebuild,
 		})
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to wait for task")
+		}
 
 		getRes, err := lch.GetTaskStatus(&launcher.GetTaskStatusParams{
 			ID:        waitRes.ID,
 			ECS:       rt.ECS,
 			Codebuild: rt.Codebuild,
 		})
+		if err != nil {
+			logrus.WithError(err).Fatal("failed to get task status")
+		}
 
 		elapsed := getRes.EndTime.Sub(*getRes.StartTime)
 

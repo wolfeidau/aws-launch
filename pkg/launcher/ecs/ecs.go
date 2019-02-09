@@ -98,7 +98,7 @@ func (lc *ECSLauncher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.Defi
 		Cpu:         aws.String(DefaultCPU),
 		Memory:      aws.String(DefaultMemory),
 		ContainerDefinitions: []*ecs.ContainerDefinition{
-			&ecs.ContainerDefinition{
+			{
 				Name:  aws.String(dp.ECS.ContainerName),
 				Image: aws.String(dp.Image),
 				LogConfiguration: &ecs.LogConfiguration{
@@ -143,7 +143,7 @@ func (lc *ECSLauncher) LaunchTask(lp *launcher.LaunchTaskParams) (*launcher.Laun
 		Count:          aws.Int64(1),
 		Overrides: &ecs.TaskOverride{
 			ContainerOverrides: []*ecs.ContainerOverride{
-				&ecs.ContainerOverride{
+				{
 					Cpu:         aws.Int64(lp.ECS.CPU),
 					Memory:      aws.Int64(lp.ECS.Memory),
 					Name:        aws.String(lp.ECS.ContainerName),
