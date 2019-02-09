@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -15,12 +13,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
+	"github.com/wolfeidau/aws-launch/pkg/cwlogs"
+	"github.com/wolfeidau/aws-launch/pkg/launcher"
 )
 
 const (
 	// DefaultCPU default cpu allocation to a fargate task
 	DefaultCPU = "256"
+
 	// DefaultMemory default memory allocation to a fargate task
 	DefaultMemory = "512"
 

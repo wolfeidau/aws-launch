@@ -1,4 +1,4 @@
-module github.com/wolfeidau/fargate-run-job
+module github.com/wolfeidau/aws-launch
 
 require (
 	github.com/alecthomas/jsonschema v0.0.0-20190122210438-a6952de1bbe6

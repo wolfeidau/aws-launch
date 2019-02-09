@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
-	"github.com/wolfeidau/fargate-run-job/pkg/schema"
+	"github.com/wolfeidau/aws-launch/pkg/launcher"
+	"github.com/wolfeidau/aws-launch/pkg/schema"
 	"github.com/xeipuuv/gojsonschema"
 )
 

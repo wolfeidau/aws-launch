@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
-	"github.com/wolfeidau/fargate-run-job/pkg/valid"
+	"github.com/wolfeidau/aws-launch/pkg/cwlogs"
+	"github.com/wolfeidau/aws-launch/pkg/valid"
 )
 
 const (

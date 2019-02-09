@@ -9,8 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/codebuild"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/wolfeidau/fargate-run-job/mocks"
-	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
+	"github.com/wolfeidau/aws-launch/mocks"
+	"github.com/wolfeidau/aws-launch/pkg/cwlogs"
 )
 
 func TestCodeBuildLauncher_DefineAndLaunchTask(t *testing.T) {

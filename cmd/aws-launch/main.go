@@ -9,13 +9,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/onrik/logrus/filename"
 	"github.com/sirupsen/logrus"
-	"github.com/wolfeidau/fargate-run-job/pkg/configuration"
-	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
-	"github.com/wolfeidau/fargate-run-job/pkg/launcher/service"
+	"github.com/wolfeidau/aws-launch/pkg/configuration"
+	"github.com/wolfeidau/aws-launch/pkg/launcher"
+	"github.com/wolfeidau/aws-launch/pkg/launcher/service"
 )
 
 var (
-	app     = kingpin.New("fargate-run-job", "A command-line fargate provisioning application.")
+	app     = kingpin.New("aws-launch", "A command-line task provisioning application.")
 	verbose = app.Flag("verbose", "Verbose mode.").Short('v').Bool()
 
 	oneTask = app.Command("one-task", "Create a new definition and run in one shot.")

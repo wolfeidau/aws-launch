@@ -15,8 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/codebuild/codebuildiface"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/wolfeidau/fargate-run-job/pkg/cwlogs"
-	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
+	"github.com/wolfeidau/aws-launch/pkg/cwlogs"
+	"github.com/wolfeidau/aws-launch/pkg/launcher"
 )
 
 const (

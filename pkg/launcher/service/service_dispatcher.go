@@ -3,9 +3,9 @@ package service
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
-	"github.com/wolfeidau/fargate-run-job/pkg/launcher"
-	"github.com/wolfeidau/fargate-run-job/pkg/launcher/codebuild"
-	"github.com/wolfeidau/fargate-run-job/pkg/launcher/ecs"
+	"github.com/wolfeidau/aws-launch/pkg/launcher"
+	"github.com/wolfeidau/aws-launch/pkg/launcher/codebuild"
+	"github.com/wolfeidau/aws-launch/pkg/launcher/ecs"
 )
 
 // ServiceDispatcher dispatches definition and launch requests to the correct backend
