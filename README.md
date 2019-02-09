@@ -1,6 +1,6 @@
 # aws-launch
 
-This CLI tool which enables you to launch container based tasks using AWS services (Elastic Container Service (ECS))[https://aws.amazon.com/ecs/] and (CodeBuild)[https://aws.amazon.com/codebuild/]. It provides a simplified interface when using these services, removing some of the inconsistencies.
+This CLI tool which enables you to launch container based tasks using AWS services [Elastic Container Service (ECS)](https://aws.amazon.com/ecs/) and [CodeBuild](https://aws.amazon.com/codebuild/). It provides a simplified interface when using these services, removing some of the inconsistencies.
 
 # Usage
 
