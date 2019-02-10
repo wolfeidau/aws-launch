@@ -1,8 +1,10 @@
 # aws-launch [![Go Report Card](https://goreportcard.com/badge/github.com/wolfeidau/aws-launch)](https://goreportcard.com/report/github.com/wolfeidau/aws-launch)
 
-This CLI tool which enables you to launch container based tasks using AWS services [Elastic Container Service (ECS)](https://aws.amazon.com/ecs/) and [CodeBuild](https://aws.amazon.com/codebuild/). It provides a simplified interface when using these services, removing some of the inconsistencies.
+This project which enables you to launch container based tasks using AWS services [Elastic Container Service (ECS)](https://aws.amazon.com/ecs/) and [CodeBuild](https://aws.amazon.com/codebuild/). It provides a simplified interface when using these services, removing some of the inconsistencies.
 
-# Usage
+The CLI is just provided to illustrate how the API works, hence the rather odd JSON file driven interface which provides a very coarse interface but demonstrates JSON validation typically used in RPC services.
+
+# CLI Usage
 
 This cli allows you to provide JSON payloads to the API, which are then validated and used to launch and manage tasks. Note there is a dump schema command which will return the JSON schema for each JSON payload.
 

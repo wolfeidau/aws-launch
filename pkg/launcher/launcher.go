@@ -51,11 +51,12 @@ type DefineAndLaunchParams struct {
 // Valid validate input structure of define and launch task params
 func (dlp *DefineAndLaunchParams) Valid() error {
 	// do we have any service params at all
-	if valid.CountOfNotNil(dlp.ECS, dlp.Codebuild) == 0 {
+	if valid.ReflectCountOfNotZero(dlp, "ECS", "Codebuild") == 0 {
 		return ErrMissingParams
 	}
+
 	// check there is only one service configuration supplied
-	if valid.OneOf(dlp.ECS, dlp.Codebuild) {
+	if !valid.ReflectOneOf(dlp, "ECS", "Codebuild") {
 		return ErrInvalidParams
 	}
 
@@ -176,11 +177,12 @@ type LaunchTaskCodebuildResult struct {
 // Valid validate input structure of run task params
 func (rt *BaseTaskResult) Valid() error {
 	// do we have any service params at all
-	if valid.CountOfNotNil(rt.ECS, rt.CodeBuild) == 0 {
+	if valid.ReflectCountOfNotZero(rt, "ECS", "Codebuild") == 0 {
 		return ErrMissingParams
 	}
+
 	// check there is only one service configuration supplied
-	if valid.OneOf(rt.ECS, rt.CodeBuild) {
+	if !valid.ReflectOneOf(rt, "ECS", "Codebuild") {
 		return ErrInvalidParams
 	}
 
@@ -225,13 +227,14 @@ type LaunchTaskParams struct {
 }
 
 // Valid validate input structure of run task params
-func (rt *LaunchTaskParams) Valid() error {
+func (lt *LaunchTaskParams) Valid() error {
 	// do we have any service params at all
-	if valid.CountOfNotNil(rt.ECS, rt.Codebuild) == 0 {
+	if valid.ReflectCountOfNotZero(lt, "ECS", "Codebuild") == 0 {
 		return ErrMissingParams
 	}
+
 	// check there is only one service configuration supplied
-	if valid.OneOf(rt.ECS, rt.Codebuild) {
+	if !valid.ReflectOneOf(lt, "ECS", "Codebuild") {
 		return ErrInvalidParams
 	}
 
@@ -285,25 +288,26 @@ type DefineTaskParams struct {
 	Tags        map[string]string          `json:"tags,omitempty"`
 }
 
+// Valid validate input structure of definition params
+func (dt *DefineTaskParams) Valid() error {
+	// do we have any service params at all
+	if valid.ReflectCountOfNotZero(dt, "ECS", "Codebuild") == 0 {
+		return ErrMissingParams
+	}
+
+	// check there is only one service configuration supplied
+	if !valid.ReflectOneOf(dt, "ECS", "Codebuild") {
+		return ErrInvalidParams
+	}
+
+	return nil
+}
+
 // DefineTaskResult the results from create definition
 type DefineTaskResult struct {
 	ID                     string `json:"id,omitempty"`
 	CloudwatchLogGroupName string `json:"cloudwatch_log_group_name,omitempty"`
 	CloudwatchStreamPrefix string `json:"cloudwatch_stream_prefix,omitempty"`
-}
-
-// Valid validate input structure of definition params
-func (dp *DefineTaskParams) Valid() error {
-	// do we have any service params at all
-	if valid.CountOfNotNil(dp.ECS, dp.Codebuild) == 0 {
-		return ErrMissingParams
-	}
-	// check there is only one service configuration supplied
-	if valid.OneOf(dp.ECS, dp.Codebuild) {
-		return ErrInvalidParams
-	}
-
-	return nil
 }
 
 // CleanupTaskParams cleanup definition params
@@ -313,13 +317,14 @@ type CleanupTaskParams struct {
 }
 
 // Valid validate input structure of definition params
-func (dp *CleanupTaskParams) Valid() error {
+func (ct *CleanupTaskParams) Valid() error {
 	// do we have any service params at all
-	if valid.CountOfNotNil(dp.ECS, dp.Codebuild) == 0 {
+	if valid.ReflectCountOfNotZero(ct, "ECS", "Codebuild") == 0 {
 		return ErrMissingParams
 	}
+
 	// check there is only one service configuration supplied
-	if valid.OneOf(dp.ECS, dp.Codebuild) {
+	if !valid.ReflectOneOf(ct, "ECS", "Codebuild") {
 		return ErrInvalidParams
 	}
 
@@ -348,13 +353,14 @@ type GetTaskLogsParams struct {
 }
 
 // Valid validate input structure of logs params
-func (gtlp *GetTaskLogsParams) Valid() error {
+func (gt *GetTaskLogsParams) Valid() error {
 	// do we have any service params at all
-	if valid.CountOfNotNil(gtlp.ECS, gtlp.Codebuild) == 0 {
+	if valid.ReflectCountOfNotZero(gt, "ECS", "Codebuild") == 0 {
 		return ErrMissingParams
 	}
+
 	// check there is only one service configuration supplied
-	if valid.OneOf(gtlp.ECS, gtlp.Codebuild) {
+	if !valid.ReflectOneOf(gt, "ECS", "Codebuild") {
 		return ErrInvalidParams
 	}
 

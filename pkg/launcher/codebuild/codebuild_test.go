@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wolfeidau/aws-launch/mocks"
 	"github.com/wolfeidau/aws-launch/pkg/cwlogs"
+	"github.com/wolfeidau/aws-launch/pkg/launcher"
 )
 
 func TestCodeBuildLauncher_DefineAndLaunchTask(t *testing.T) {
@@ -31,8 +32,8 @@ func TestCodeBuildLauncher_DefineAndLaunchTask(t *testing.T) {
 		},
 	}, nil)
 
-	dl := &DefineAndLaunchParams{
-		Codebuild: &CodebuildDefineAndLaunchParams{
+	dl := &launcher.DefineAndLaunchParams{
+		Codebuild: &launcher.CodebuildDefineAndLaunchParams{
 			ProjectName: "testing-1",
 			ComputeType: "BUILD_GENERAL1_SMALL",
 			ServiceRole: "abc123Role",
@@ -45,8 +46,8 @@ func TestCodeBuildLauncher_DefineAndLaunchTask(t *testing.T) {
 		},
 	}
 
-	want := &DefineAndLaunchResult{
-		BaseTaskResult: &BaseTaskResult{
+	want := &launcher.DefineAndLaunchResult{
+		BaseTaskResult: &launcher.BaseTaskResult{
 			ID: "abc123",
 		},
 		DefinitionID:           "abc123/codebuild/whatever",
@@ -73,8 +74,8 @@ func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
 		},
 	}, nil)
 
-	rt := &LaunchTaskParams{
-		Codebuild: &CodebuildTaskParams{
+	rt := &launcher.LaunchTaskParams{
+		Codebuild: &launcher.CodebuildTaskParams{
 			ProjectName: "testing-1",
 		},
 		Environment: map[string]string{
@@ -82,8 +83,8 @@ func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
 		},
 	}
 
-	want := &LaunchTaskResult{
-		BaseTaskResult: &BaseTaskResult{
+	want := &launcher.LaunchTaskResult{
+		BaseTaskResult: &launcher.BaseTaskResult{
 			ID: "abc123",
 		},
 	}
@@ -109,8 +110,8 @@ func TestCodeBuildLauncher_DefineTask_With_Update(t *testing.T) {
 		},
 	}, nil)
 
-	dp := &DefineTaskParams{
-		Codebuild: &CodebuildDefineTaskParams{
+	dp := &launcher.DefineTaskParams{
+		Codebuild: &launcher.CodebuildDefineTaskParams{
 			ProjectName: "testing-1",
 			ComputeType: "BUILD_GENERAL1_SMALL",
 			ServiceRole: "abc123Role",
@@ -122,7 +123,7 @@ func TestCodeBuildLauncher_DefineTask_With_Update(t *testing.T) {
 			"TestEnv": "test",
 		},
 	}
-	want := &DefineTaskResult{
+	want := &launcher.DefineTaskResult{
 		ID:                     "abc123/codebuild/whatever",
 		CloudwatchLogGroupName: "/aws/codebuild/testing-1",
 		CloudwatchStreamPrefix: "codebuild",
@@ -151,14 +152,14 @@ func TestCodeBuildLauncher_GetTaskStatus(t *testing.T) {
 		},
 	}, nil)
 
-	gt := &GetTaskStatusParams{
-		Codebuild: &CodebuildTaskParams{
+	gt := &launcher.GetTaskStatusParams{
+		Codebuild: &launcher.CodebuildTaskParams{
 			ProjectName: "testing-1",
 		},
 	}
-	want := &GetTaskStatusResult{
-		BaseTaskResult: &BaseTaskResult{
-			CodeBuild: &LaunchTaskCodebuildResult{
+	want := &launcher.GetTaskStatusResult{
+		BaseTaskResult: &launcher.BaseTaskResult{
+			CodeBuild: &launcher.LaunchTaskCodebuildResult{
 				BuildArn:    "abc123",
 				BuildStatus: "SUCCEEDED",
 			},
@@ -182,12 +183,12 @@ func TestCodeBuildLauncher_CleanUpTask(t *testing.T) {
 
 	codeBuildSvcMock.On("DeleteProject", mock.AnythingOfType("*codebuild.DeleteProjectInput")).Return(&codebuild.DeleteProjectOutput{}, nil)
 
-	ct := &CleanupTaskParams{
-		Codebuild: &CodebuildCleanupTaskParams{
+	ct := &launcher.CleanupTaskParams{
+		Codebuild: &launcher.CodebuildCleanupTaskParams{
 			ProjectName: "testing-1",
 		},
 	}
-	want := &CleanupTaskResult{}
+	want := &launcher.CleanupTaskResult{}
 
 	cbl := &CodeBuildLauncher{
 		codeBuildSvc: codeBuildSvcMock,
@@ -207,11 +208,11 @@ func TestCodeBuildLauncher_GetTaskLogs(t *testing.T) {
 		NextToken: aws.String("f/123456789"),
 	}, nil)
 
-	gt := &GetTaskLogsParams{
-		Codebuild: &CodebuildTaskLogsParams{},
+	gt := &launcher.GetTaskLogsParams{
+		Codebuild: &launcher.CodebuildTaskLogsParams{},
 	}
 
-	want := &GetTaskLogsResult{
+	want := &launcher.GetTaskLogsResult{
 		LogLines:  []*cwlogs.LogLine{{Message: "whatever"}},
 		NextToken: aws.String("f/123456789"),
 	}

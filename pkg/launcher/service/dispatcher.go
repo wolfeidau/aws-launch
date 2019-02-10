@@ -8,22 +8,22 @@ import (
 	"github.com/wolfeidau/aws-launch/pkg/launcher/ecs"
 )
 
-// ServiceDispatcher dispatches definition and launch requests to the correct backend
-type ServiceDispatcher struct {
+// Dispatcher dispatches definition and launch requests to the correct backend
+type Dispatcher struct {
 	ECS       launcher.Launcher
 	Codebuild launcher.Launcher
 }
 
 // New create a service dispatcher with the AWS configuration overrides
-func New(cfgs ...*aws.Config) *ServiceDispatcher {
-	return &ServiceDispatcher{
+func New(cfgs ...*aws.Config) *Dispatcher {
+	return &Dispatcher{
 		ECS:       ecs.NewECSLauncher(cfgs...),
 		Codebuild: codebuild.NewCodeBuildLauncher(cfgs...),
 	}
 }
 
 // DefineAndLaunch create a definition, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) DefineAndLaunch(dp *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
+func (s *Dispatcher) DefineAndLaunch(dp *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
 
 	if err := dp.Valid(); err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (s *ServiceDispatcher) DefineAndLaunch(dp *launcher.DefineAndLaunchParams) 
 }
 
 // DefineTask create a definition, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
+func (s *Dispatcher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
 
 	if err := dp.Valid(); err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (s *ServiceDispatcher) DefineTask(dp *launcher.DefineTaskParams) (*launcher
 }
 
 // LaunchTask run a task, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) LaunchTask(rt *launcher.LaunchTaskParams) (*launcher.LaunchTaskResult, error) {
+func (s *Dispatcher) LaunchTask(rt *launcher.LaunchTaskParams) (*launcher.LaunchTaskResult, error) {
 	if err := rt.Valid(); err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (s *ServiceDispatcher) LaunchTask(rt *launcher.LaunchTaskParams) (*launcher
 }
 
 // GetTaskStatus get task status, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launcher.GetTaskStatusResult, error) {
+func (s *Dispatcher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launcher.GetTaskStatusResult, error) {
 
 	switch {
 	case gts.ECS != nil:
@@ -86,7 +86,7 @@ func (s *ServiceDispatcher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*l
 }
 
 // WaitForTask wait for a task to complete, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) WaitForTask(wft *launcher.WaitForTaskParams) (*launcher.WaitForTaskResult, error) {
+func (s *Dispatcher) WaitForTask(wft *launcher.WaitForTaskParams) (*launcher.WaitForTaskResult, error) {
 	// if err := wft.Valid(); err != nil {
 	// 	return nil, err
 	// }
@@ -102,7 +102,7 @@ func (s *ServiceDispatcher) WaitForTask(wft *launcher.WaitForTaskParams) (*launc
 }
 
 // CleanupTask clean up task definition, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) CleanupTask(ctp *launcher.CleanupTaskParams) (*launcher.CleanupTaskResult, error) {
+func (s *Dispatcher) CleanupTask(ctp *launcher.CleanupTaskParams) (*launcher.CleanupTaskResult, error) {
 	if err := ctp.Valid(); err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (s *ServiceDispatcher) CleanupTask(ctp *launcher.CleanupTaskParams) (*launc
 }
 
 // GetTaskLogs get the logs for a task, internally this is dispatched to the correct AWS service for creation
-func (s *ServiceDispatcher) GetTaskLogs(gtlp *launcher.GetTaskLogsParams) (*launcher.GetTaskLogsResult, error) {
+func (s *Dispatcher) GetTaskLogs(gtlp *launcher.GetTaskLogsParams) (*launcher.GetTaskLogsResult, error) {
 	if err := gtlp.Valid(); err != nil {
 		return nil, err
 	}
