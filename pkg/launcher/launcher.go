@@ -103,8 +103,10 @@ func (dlp *DefineAndLaunchParams) BuildLaunchTask(definitionID string) *LaunchTa
 	}
 
 	if dlp.Codebuild != nil {
+		// NOTE: As this is defined and launched all these params are already provided so we skip optional ones
 		lt.Codebuild = &CodebuildTaskParams{
 			ProjectName: dlp.Codebuild.ProjectName,
+			Image:       dlp.Codebuild.Image,
 		}
 	}
 
@@ -145,11 +147,12 @@ type ECSDefineAndLaunchParams struct {
 
 // CodebuildDefineAndLaunchParams define and launch parameters for Codebuild
 type CodebuildDefineAndLaunchParams struct {
-	ProjectName    string `json:"project_name,omitempty" jsonschema:"required"`
-	ComputeType    string `json:"compute_type,omitempty" jsonschema:"required"`
-	PrivilegedMode *bool  `json:"privileged_mode,omitempty"`
-	Buildspec      string `json:"buildspec,omitempty" jsonschema:"required"`
-	ServiceRole    string `json:"service_role,omitempty" jsonschema:"required"`
+	ProjectName    string  `json:"project_name,omitempty" jsonschema:"required"`
+	ComputeType    string  `json:"compute_type,omitempty" jsonschema:"required"`
+	PrivilegedMode *bool   `json:"privileged_mode,omitempty"`
+	Buildspec      string  `json:"buildspec,omitempty" jsonschema:"required"`
+	ServiceRole    string  `json:"service_role,omitempty" jsonschema:"required"`
+	Image          *string `json:"image,omitempty"`
 }
 
 // BaseTaskResult common base task result

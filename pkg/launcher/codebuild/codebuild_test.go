@@ -14,13 +14,17 @@ import (
 	"github.com/wolfeidau/aws-launch/pkg/launcher"
 )
 
+const codebuildArn = "arn:aws:codebuild:ap-southeast-2:123456789012:build/BuildkiteProject-dev-1:b17dddde-97c6-4592-b7be-216524f8422b"
+
 func TestCodeBuildLauncher_DefineAndLaunchTask(t *testing.T) {
 	cwlogsSvcMock := &mocks.CloudWatchLogsAPI{}
 	codeBuildSvcMock := &mocks.CodeBuildAPI{}
 
 	codeBuildSvcMock.On("StartBuild", mock.AnythingOfType("*codebuild.StartBuildInput")).Return(&codebuild.StartBuildOutput{
 		Build: &codebuild.Build{
-			Id: aws.String("abc123"),
+			Id:          aws.String("abc123"),
+			BuildStatus: aws.String(codebuild.StatusTypeInProgress),
+			Arn:         aws.String(codebuildArn),
 		},
 	}, nil)
 
@@ -28,7 +32,7 @@ func TestCodeBuildLauncher_DefineAndLaunchTask(t *testing.T) {
 	codeBuildSvcMock.On("UpdateProject", mock.AnythingOfType("*codebuild.UpdateProjectInput")).Return(nil, awserr.New("ResourceNotFoundException", "", nil))
 	codeBuildSvcMock.On("CreateProject", mock.AnythingOfType("*codebuild.CreateProjectInput")).Return(&codebuild.CreateProjectOutput{
 		Project: &codebuild.Project{
-			Arn: aws.String("abc123/codebuild/whatever"),
+			Arn: aws.String(codebuildArn),
 		},
 	}, nil)
 
@@ -49,8 +53,13 @@ func TestCodeBuildLauncher_DefineAndLaunchTask(t *testing.T) {
 	want := &launcher.DefineAndLaunchResult{
 		BaseTaskResult: &launcher.BaseTaskResult{
 			ID: "abc123",
+			CodeBuild: &launcher.LaunchTaskCodebuildResult{
+				BuildArn:    codebuildArn,
+				BuildStatus: codebuild.StatusTypeInProgress,
+			},
+			TaskStatus: launcher.TaskRunning,
 		},
-		DefinitionID:           "abc123/codebuild/whatever",
+		DefinitionID:           codebuildArn,
 		CloudwatchLogGroupName: "/aws/codebuild/testing-1",
 		CloudwatchStreamPrefix: "codebuild",
 	}
@@ -70,7 +79,9 @@ func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
 
 	codeBuildSvcMock.On("StartBuild", mock.AnythingOfType("*codebuild.StartBuildInput")).Return(&codebuild.StartBuildOutput{
 		Build: &codebuild.Build{
-			Id: aws.String("abc123"),
+			Id:          aws.String("abc123"),
+			BuildStatus: aws.String(codebuild.StatusTypeInProgress),
+			Arn:         aws.String(codebuildArn),
 		},
 	}, nil)
 
@@ -85,7 +96,12 @@ func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
 
 	want := &launcher.LaunchTaskResult{
 		BaseTaskResult: &launcher.BaseTaskResult{
-			ID: "abc123",
+			ID:         "abc123",
+			TaskStatus: launcher.TaskRunning,
+			CodeBuild: &launcher.LaunchTaskCodebuildResult{
+				BuildArn:    codebuildArn,
+				BuildStatus: codebuild.StatusTypeInProgress,
+			},
 		},
 	}
 	cbl := &CodeBuildLauncher{
@@ -147,7 +163,7 @@ func TestCodeBuildLauncher_GetTaskStatus(t *testing.T) {
 		Builds: []*codebuild.Build{
 			{
 				BuildStatus: aws.String(codebuild.StatusTypeSucceeded),
-				Arn:         aws.String("abc123"),
+				Arn:         aws.String(codebuildArn),
 			},
 		},
 	}, nil)
@@ -160,11 +176,11 @@ func TestCodeBuildLauncher_GetTaskStatus(t *testing.T) {
 	want := &launcher.GetTaskStatusResult{
 		BaseTaskResult: &launcher.BaseTaskResult{
 			CodeBuild: &launcher.LaunchTaskCodebuildResult{
-				BuildArn:    "abc123",
+				BuildArn:    codebuildArn,
 				BuildStatus: "SUCCEEDED",
 			},
-			ID:         "abc123",
-			TaskStatus: "RUNNING",
+			ID:         codebuildArn,
+			TaskStatus: launcher.TaskSucceeded,
 		},
 	}
 

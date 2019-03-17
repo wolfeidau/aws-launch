@@ -42,7 +42,7 @@ type CloudwatchLogsReader struct {
 
 // NewCloudwatchLogsReader read all the things
 func NewCloudwatchLogsReader(cfgs ...*aws.Config) *CloudwatchLogsReader {
-	sess := session.New(cfgs...)
+	sess := session.Must(session.NewSession(cfgs...))
 	return &CloudwatchLogsReader{
 		cwlogsSvc: cloudwatchlogs.New(sess),
 	}
