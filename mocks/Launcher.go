@@ -33,29 +33,6 @@ func (_m *Launcher) CleanupTask(_a0 *launcher.CleanupTaskParams) (*launcher.Clea
 	return r0, r1
 }
 
-// DefineAndLaunch provides a mock function with given fields: _a0
-func (_m *Launcher) DefineAndLaunch(_a0 *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
-	ret := _m.Called(_a0)
-
-	var r0 *launcher.DefineAndLaunchResult
-	if rf, ok := ret.Get(0).(func(*launcher.DefineAndLaunchParams) *launcher.DefineAndLaunchResult); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*launcher.DefineAndLaunchResult)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*launcher.DefineAndLaunchParams) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // DefineTask provides a mock function with given fields: _a0
 func (_m *Launcher) DefineTask(_a0 *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
 	ret := _m.Called(_a0)

@@ -59,8 +59,6 @@ func GetSchema(paramName string) (string, error) {
 	var v interface{}
 
 	switch paramName {
-	case "DefineAndLaunchParams":
-		v = &launcher.DefineAndLaunchParams{}
 	case "DefinitionParams":
 		v = &launcher.DefineTaskParams{}
 	case "LaunchTaskParams":
