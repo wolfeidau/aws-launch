@@ -36,7 +36,7 @@ type CodeBuildLauncher struct {
 
 // NewCodeBuildLauncher create a new launcher
 func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
-	sess := session.New(cfgs...)
+	sess := session.Must(session.NewSession(cfgs...))
 	return &CodeBuildLauncher{
 		codeBuildSvc: codebuild.New(sess),
 		cwlogsSvc:    cloudwatchlogs.New(sess),
@@ -157,10 +157,15 @@ func (cbl *CodeBuildLauncher) LaunchTask(rt *launcher.LaunchTaskParams) (*launch
 	}
 
 	taskRes := &launcher.BaseTaskResult{
-		ID: aws.StringValue(res.Build.Id),
+		ID:         aws.StringValue(res.Build.Id),
+		TaskStatus: convertTaskStatus(aws.StringValue(res.Build.BuildStatus)),
+		CodeBuild: &launcher.LaunchTaskCodebuildResult{
+			BuildArn:    aws.StringValue(res.Build.Arn),
+			BuildStatus: aws.StringValue(res.Build.BuildStatus),
+		},
 	}
 
-	return &launcher.LaunchTaskResult{taskRes}, nil
+	return &launcher.LaunchTaskResult{BaseTaskResult: taskRes}, nil
 }
 
 // WaitForTask wait for task to complete
@@ -189,33 +194,35 @@ func (cbl *CodeBuildLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (
 		return nil, errors.Wrap(err, "failed to start build.")
 	}
 
+	build := getBuildRes.Builds[0]
+
 	logrus.WithFields(logrus.Fields{
-		"BuildComplete": aws.BoolValue(getBuildRes.Builds[0].BuildComplete),
-		"BuildStatus":   aws.StringValue(getBuildRes.Builds[0].BuildStatus),
-		"StartTime":     aws.TimeValue(getBuildRes.Builds[0].StartTime),
-		"StopTime":      aws.TimeValue(getBuildRes.Builds[0].EndTime),
+		"BuildComplete": aws.BoolValue(build.BuildComplete),
+		"BuildStatus":   aws.StringValue(build.BuildStatus),
+		"StartTime":     aws.TimeValue(build.StartTime),
+		"StopTime":      aws.TimeValue(build.EndTime),
 	}).Info("Describe completed Task")
 
 	taskRes := &launcher.BaseTaskResult{
-		ID:        aws.StringValue(getBuildRes.Builds[0].Arn),
-		StartTime: getBuildRes.Builds[0].StartTime,
-		EndTime:   getBuildRes.Builds[0].EndTime,
+		ID:         aws.StringValue(build.Arn),
+		StartTime:  build.StartTime,
+		EndTime:    build.EndTime,
+		TaskStatus: convertTaskStatus(aws.StringValue(build.BuildStatus)),
 		CodeBuild: &launcher.LaunchTaskCodebuildResult{
-			BuildArn:    aws.StringValue(getBuildRes.Builds[0].Arn),
-			BuildStatus: aws.StringValue(getBuildRes.Builds[0].BuildStatus),
+			BuildArn:    aws.StringValue(build.Arn),
+			BuildStatus: aws.StringValue(build.BuildStatus),
 		},
-		TaskStatus: launcher.TaskRunning,
 	}
 
-	if aws.BoolValue(getBuildRes.Builds[0].BuildComplete) == true {
-		if aws.StringValue(getBuildRes.Builds[0].BuildStatus) == "SUCCEEDED" {
+	if aws.BoolValue(build.BuildComplete) {
+		if aws.StringValue(build.BuildStatus) == "SUCCEEDED" {
 			taskRes.TaskStatus = launcher.TaskSucceeded
 		} else {
 			taskRes.TaskStatus = launcher.TaskFailed
 		}
 	}
 
-	return &launcher.GetTaskStatusResult{taskRes}, nil
+	return &launcher.GetTaskStatusResult{BaseTaskResult: taskRes}, nil
 
 }
 
@@ -348,4 +355,17 @@ func convertMapToCodebuildTags(tags map[string]string) []*codebuild.Tag {
 	}
 
 	return codebuildTags
+}
+
+func convertTaskStatus(codebuildStatus string) string {
+	switch codebuildStatus {
+	case codebuild.StatusTypeStopped:
+		return launcher.TaskStopped
+	case codebuild.StatusTypeInProgress:
+		return launcher.TaskRunning
+	case codebuild.StatusTypeSucceeded:
+		return launcher.TaskSucceeded
+	default:
+		return launcher.TaskFailed
+	}
 }

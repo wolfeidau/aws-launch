@@ -42,6 +42,10 @@ func main() {
 	logrus.AddHook(filename.NewHook())
 	config := aws.NewConfig()
 
+	if *verbose {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
 	lch := service.New(config)
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
@@ -95,7 +99,7 @@ func main() {
 			"TaskStatus":             getRes.TaskStatus,
 			"DefinitionID":           res.DefinitionID,
 			"CloudwatchLogGroupName": res.CloudwatchLogGroupName,
-			"Elapsed":                fmt.Sprintf("%s", elapsed),
+			"Elapsed":                elapsed,
 		}).Info("run task complete")
 
 	case defineTask.FullCommand():
@@ -167,7 +171,7 @@ func main() {
 
 		logrus.WithFields(logrus.Fields{
 			"ID":      getRes.ID,
-			"Elapsed": fmt.Sprintf("%s", elapsed),
+			"Elapsed": elapsed,
 		}).Info("run task complete")
 
 	case cleanupTask.FullCommand():

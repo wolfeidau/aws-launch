@@ -40,7 +40,7 @@ type ECSLauncher struct {
 
 // NewECSLauncher create a new launcher
 func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
-	sess := session.New(cfgs...)
+	sess := session.Must(session.NewSession(cfgs...))
 	return &ECSLauncher{
 		ecsSvc:       ecs.New(sess),
 		cwlogsSvc:    cloudwatchlogs.New(sess),
@@ -164,15 +164,22 @@ func (lc *ECSLauncher) LaunchTask(lp *launcher.LaunchTaskParams) (*launcher.Laun
 		return nil, errors.Wrap(err, "failed to create task.")
 	}
 
+	task := runRes.Tasks[0]
+
 	logrus.WithFields(logrus.Fields{
-		"TaskID": shortenTaskArn(runRes.Tasks[0].TaskArn),
+		"TaskID": shortenTaskArn(task.TaskArn),
 	}).Info("Task Provisioned")
 
 	taskRes := &launcher.BaseTaskResult{
-		ID: aws.StringValue(runRes.Tasks[0].TaskArn),
+		ID:         aws.StringValue(task.TaskArn),
+		TaskStatus: launcher.TaskRunning,
+		ECS: &launcher.LaunchTaskECSResult{
+			TaskArn: aws.StringValue(task.TaskArn),
+			TaskID:  shortenTaskArn(task.TaskArn),
+		},
 	}
 
-	return &launcher.LaunchTaskResult{taskRes}, nil
+	return &launcher.LaunchTaskResult{BaseTaskResult: taskRes}, nil
 }
 
 // WaitForTask wait for task to complete
@@ -202,32 +209,34 @@ func (lc *ECSLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launch
 		return nil, errors.Wrap(err, "failed to describe task.")
 	}
 
+	task := descRes.Tasks[0]
+
 	logrus.WithFields(logrus.Fields{
-		"TaskID":        shortenTaskArn(descRes.Tasks[0].TaskArn),
-		"StopCode":      aws.StringValue(descRes.Tasks[0].StopCode),
-		"StoppedReason": aws.StringValue(descRes.Tasks[0].StoppedReason),
+		"TaskID":        shortenTaskArn(task.TaskArn),
+		"StopCode":      aws.StringValue(task.StopCode),
+		"StoppedReason": aws.StringValue(task.StoppedReason),
 	}).Info("Describe completed Task")
 
 	taskRes := &launcher.BaseTaskResult{
-		ID:         aws.StringValue(descRes.Tasks[0].TaskArn),
-		StartTime:  descRes.Tasks[0].StartedAt,
-		EndTime:    descRes.Tasks[0].StoppedAt,
+		ID:         aws.StringValue(task.TaskArn),
+		StartTime:  task.StartedAt,
+		EndTime:    task.StoppedAt,
 		TaskStatus: launcher.TaskRunning,
 		ECS: &launcher.LaunchTaskECSResult{
-			TaskArn: aws.StringValue(descRes.Tasks[0].TaskArn),
-			TaskID:  shortenTaskArn(descRes.Tasks[0].TaskArn),
+			TaskArn: aws.StringValue(task.TaskArn),
+			TaskID:  shortenTaskArn(task.TaskArn),
 		},
 	}
 
-	if aws.StringValue(descRes.Tasks[0].LastStatus) == "STOPPED" {
-		if aws.StringValue(descRes.Tasks[0].StopCode) == "EssentialContainerExited" {
+	if aws.StringValue(task.LastStatus) == "STOPPED" {
+		if aws.StringValue(task.StopCode) == "EssentialContainerExited" {
 			taskRes.TaskStatus = launcher.TaskSucceeded
 		} else {
 			taskRes.TaskStatus = launcher.TaskFailed
 		}
 	}
 
-	return &launcher.GetTaskStatusResult{taskRes}, nil
+	return &launcher.GetTaskStatusResult{BaseTaskResult: taskRes}, nil
 }
 
 // CleanupTask clean up ecs task definition

@@ -14,6 +14,11 @@ import (
 	"github.com/wolfeidau/aws-launch/pkg/launcher"
 )
 
+func Test_ShortenARN(t *testing.T) {
+	v := shortenTaskArn(aws.String("arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/abcefg1234567890abcefg1234567890"))
+	require.Equal(t, "abcefg1234567890abcefg1234567890", v)
+}
+
 func TestECSLauncher_DefineAndLaunch(t *testing.T) {
 
 	cwlogsSvcMock := &mocks.CloudWatchLogsAPI{}
@@ -50,7 +55,12 @@ func TestECSLauncher_DefineAndLaunch(t *testing.T) {
 
 	want := &launcher.DefineAndLaunchResult{
 		BaseTaskResult: &launcher.BaseTaskResult{
-			ID: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+			ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+			TaskStatus: launcher.TaskRunning,
+			ECS: &launcher.LaunchTaskECSResult{
+				TaskArn: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+				TaskID:  "dece5e631c854b0d9edd5d93e91d5b8c",
+			},
 		},
 		DefinitionID:           "test-command:123",
 		CloudwatchLogGroupName: "/aws/fargate/test-command",
@@ -90,7 +100,12 @@ func TestECSLauncher_LaunchTask(t *testing.T) {
 
 	want := &launcher.LaunchTaskResult{
 		BaseTaskResult: &launcher.BaseTaskResult{
-			ID: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+			ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+			TaskStatus: launcher.TaskRunning,
+			ECS: &launcher.LaunchTaskECSResult{
+				TaskArn: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+				TaskID:  "dece5e631c854b0d9edd5d93e91d5b8c",
+			},
 		},
 	}
 	cbl := &ECSLauncher{
