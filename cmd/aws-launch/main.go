@@ -18,9 +18,6 @@ var (
 	app     = kingpin.New("aws-launch", "A command-line task provisioning application.")
 	verbose = app.Flag("verbose", "Verbose mode.").Short('v').Bool()
 
-	oneTask = app.Command("one-task", "Create a new definition and run in one shot.")
-	oneFile = oneTask.Arg("one-file", "The path to the definition and run file.").Required().File()
-
 	defineTask = app.Command("define-task", "Create a new definition.")
 	defFile    = defineTask.Arg("def-file", "The path to the definition file.").Required().File()
 
@@ -34,7 +31,7 @@ var (
 	getTaskLogsFile = getTaskLogs.Arg("get-task-logs", "The path to the get task logs parameters file.").Required().File()
 
 	dumpSchema = app.Command("dump-schema", "Write the JSON Schema to stdout.")
-	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefineAndLaunchParams", "DefineTaskParams", "LaunchTaskParams")
+	structName = dumpSchema.Arg("struct-name", "The name of the struct you want to retrieve the schema.").Required().Enum("DefineTaskParams", "LaunchTaskParams")
 )
 
 func main() {
@@ -49,59 +46,6 @@ func main() {
 	lch := service.New(config)
 
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-	case oneTask.FullCommand():
-
-		dlp := new(launcher.DefineAndLaunchParams)
-
-		data, err := configuration.LoadJSONFile(*oneFile, dlp)
-		if err != nil {
-			logrus.WithError(err).Fatal("failed to load definition file")
-		}
-
-		err = configuration.ValidateInputFile("DefineAndLaunchParams", string(data))
-		if err != nil {
-			logrus.WithError(err).Fatal("failed to load definition file")
-		}
-
-		logrus.Info("valid task supplied")
-
-		logrus.Info("new task")
-
-		res, err := lch.DefineAndLaunch(dlp)
-		if err != nil {
-			logrus.WithError(err).Fatal("failed to launch task")
-		}
-
-		rt := dlp.BuildLaunchTask(res.ID)
-
-		waitRes, err := lch.WaitForTask(&launcher.WaitForTaskParams{
-			ID:        res.ID,
-			ECS:       rt.ECS,
-			Codebuild: rt.Codebuild,
-		})
-		if err != nil {
-			logrus.WithError(err).Fatal("failed to wait for task")
-		}
-
-		getRes, err := lch.GetTaskStatus(&launcher.GetTaskStatusParams{
-			ID:        waitRes.ID,
-			ECS:       rt.ECS,
-			Codebuild: rt.Codebuild,
-		})
-		if err != nil {
-			logrus.WithError(err).Fatal("failed to get task status")
-		}
-
-		elapsed := getRes.EndTime.Sub(*getRes.StartTime)
-
-		logrus.WithFields(logrus.Fields{
-			"ID":                     getRes.ID,
-			"TaskStatus":             getRes.TaskStatus,
-			"DefinitionID":           res.DefinitionID,
-			"CloudwatchLogGroupName": res.CloudwatchLogGroupName,
-			"Elapsed":                elapsed,
-		}).Info("run task complete")
-
 	case defineTask.FullCommand():
 		ld := new(launcher.DefineTaskParams)
 

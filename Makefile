@@ -1,6 +1,9 @@
 default: lint test
 .PHONY: default
 
+ci: setup lint test
+.PHONY: ci
+
 setup:
 	@echo "--- setup install deps"
 	@GO111MODULE=off go get -v -u github.com/golangci/golangci-lint/cmd/golangci-lint
@@ -8,7 +11,7 @@ setup:
 
 lint:
 	@echo "--- lint all the things"
-	@$(shell go env GOPATH)/bin/golangci-lint run
+	@golangci-lint run
 .PHONY: lint
 
 test:

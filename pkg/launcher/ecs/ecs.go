@@ -48,26 +48,6 @@ func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
 	}
 }
 
-// DefineAndLaunch define and launch a container in ECS
-func (lc *ECSLauncher) DefineAndLaunch(dlp *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
-	defRes, err := lc.DefineTask(dlp.BuildDefineTask())
-	if err != nil {
-		return nil, errors.Wrap(err, "define failed.")
-	}
-
-	launchRes, err := lc.LaunchTask(dlp.BuildLaunchTask(defRes.ID))
-	if err != nil {
-		return nil, errors.Wrap(err, "launch failed.")
-	}
-
-	return &launcher.DefineAndLaunchResult{
-		BaseTaskResult:         launchRes.BaseTaskResult,
-		CloudwatchLogGroupName: defRes.CloudwatchLogGroupName,
-		CloudwatchStreamPrefix: defRes.CloudwatchStreamPrefix,
-		DefinitionID:           defRes.ID,
-	}, nil
-}
-
 // DefineTask create a container task definition
 func (lc *ECSLauncher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
 

@@ -44,27 +44,6 @@ func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
 	}
 }
 
-// DefineAndLaunch define and launch a container in ECS
-func (cbl *CodeBuildLauncher) DefineAndLaunch(dlp *launcher.DefineAndLaunchParams) (*launcher.DefineAndLaunchResult, error) {
-
-	defRes, err := cbl.DefineTask(dlp.BuildDefineTask())
-	if err != nil {
-		return nil, errors.Wrap(err, "define failed.")
-	}
-
-	launchRes, err := cbl.LaunchTask(dlp.BuildLaunchTask(defRes.ID))
-	if err != nil {
-		return nil, errors.Wrap(err, "launch failed.")
-	}
-
-	return &launcher.DefineAndLaunchResult{
-		BaseTaskResult:         launchRes.BaseTaskResult,
-		CloudwatchLogGroupName: defRes.CloudwatchLogGroupName,
-		CloudwatchStreamPrefix: defRes.CloudwatchStreamPrefix,
-		DefinitionID:           defRes.ID,
-	}, nil
-}
-
 // DefineTask create or update a codebuild job for this definition and return the ARN of this job
 func (cbl *CodeBuildLauncher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
 
