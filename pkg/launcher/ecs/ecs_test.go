@@ -42,13 +42,11 @@ func TestECSLauncher_LaunchTask(t *testing.T) {
 	}
 
 	want := &launcher.LaunchTaskResult{
-		BaseTaskResult: &launcher.BaseTaskResult{
-			ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
-			TaskStatus: launcher.TaskRunning,
-			ECS: &launcher.LaunchTaskECSResult{
-				TaskArn: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
-				TaskID:  "dece5e631c854b0d9edd5d93e91d5b8c",
-			},
+		ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+		TaskStatus: launcher.TaskRunning,
+		ECS: &launcher.LaunchTaskECSResult{
+			TaskArn: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+			TaskID:  "dece5e631c854b0d9edd5d93e91d5b8c",
 		},
 	}
 	cbl := &ECSLauncher{
@@ -119,14 +117,12 @@ func TestECSLauncher_GetTaskStatus(t *testing.T) {
 		},
 	}
 	want := &launcher.GetTaskStatusResult{
-		BaseTaskResult: &launcher.BaseTaskResult{
-			ECS: &launcher.LaunchTaskECSResult{
-				TaskArn: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
-				TaskID:  "dece5e631c854b0d9edd5d93e91d5b8c",
-			},
-			ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
-			TaskStatus: "SUCCEEDED",
+		ECS: &launcher.LaunchTaskECSResult{
+			TaskArn: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+			TaskID:  "dece5e631c854b0d9edd5d93e91d5b8c",
 		},
+		ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+		TaskStatus: "SUCCEEDED",
 	}
 
 	cbl := &ECSLauncher{

@@ -150,7 +150,7 @@ func (lc *ECSLauncher) LaunchTask(lp *launcher.LaunchTaskParams) (*launcher.Laun
 		"TaskID": shortenTaskArn(task.TaskArn),
 	}).Info("Task Provisioned")
 
-	taskRes := &launcher.BaseTaskResult{
+	taskRes := &launcher.LaunchTaskResult{
 		ID:         aws.StringValue(task.TaskArn),
 		TaskStatus: launcher.TaskRunning,
 		ECS: &launcher.LaunchTaskECSResult{
@@ -159,7 +159,7 @@ func (lc *ECSLauncher) LaunchTask(lp *launcher.LaunchTaskParams) (*launcher.Laun
 		},
 	}
 
-	return &launcher.LaunchTaskResult{BaseTaskResult: taskRes}, nil
+	return taskRes, nil
 }
 
 // WaitForTask wait for task to complete
@@ -197,7 +197,7 @@ func (lc *ECSLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launch
 		"StoppedReason": aws.StringValue(task.StoppedReason),
 	}).Info("Describe completed Task")
 
-	taskRes := &launcher.BaseTaskResult{
+	taskRes := &launcher.GetTaskStatusResult{
 		ID:         aws.StringValue(task.TaskArn),
 		StartTime:  task.StartedAt,
 		EndTime:    task.StoppedAt,
@@ -216,7 +216,7 @@ func (lc *ECSLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launch
 		}
 	}
 
-	return &launcher.GetTaskStatusResult{BaseTaskResult: taskRes}, nil
+	return taskRes, nil
 }
 
 // CleanupTask clean up ecs task definition

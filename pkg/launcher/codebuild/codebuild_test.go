@@ -39,13 +39,11 @@ func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
 	}
 
 	want := &launcher.LaunchTaskResult{
-		BaseTaskResult: &launcher.BaseTaskResult{
-			ID:         "abc123",
-			TaskStatus: launcher.TaskRunning,
-			CodeBuild: &launcher.LaunchTaskCodebuildResult{
-				BuildArn:    codebuildArn,
-				BuildStatus: codebuild.StatusTypeInProgress,
-			},
+		ID:         "abc123",
+		TaskStatus: launcher.TaskRunning,
+		CodeBuild: &launcher.LaunchTaskCodebuildResult{
+			BuildArn:    codebuildArn,
+			BuildStatus: codebuild.StatusTypeInProgress,
 		},
 	}
 	cbl := &CodeBuildLauncher{
@@ -118,14 +116,12 @@ func TestCodeBuildLauncher_GetTaskStatus(t *testing.T) {
 		},
 	}
 	want := &launcher.GetTaskStatusResult{
-		BaseTaskResult: &launcher.BaseTaskResult{
-			CodeBuild: &launcher.LaunchTaskCodebuildResult{
-				BuildArn:    codebuildArn,
-				BuildStatus: "SUCCEEDED",
-			},
-			ID:         codebuildArn,
-			TaskStatus: launcher.TaskSucceeded,
+		CodeBuild: &launcher.LaunchTaskCodebuildResult{
+			BuildArn:    codebuildArn,
+			BuildStatus: "SUCCEEDED",
 		},
+		ID:         codebuildArn,
+		TaskStatus: launcher.TaskSucceeded,
 	}
 
 	cbl := &CodeBuildLauncher{

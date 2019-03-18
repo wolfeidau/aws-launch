@@ -135,7 +135,7 @@ func (cbl *CodeBuildLauncher) LaunchTask(rt *launcher.LaunchTaskParams) (*launch
 		return nil, errors.Wrap(err, "failed to start build.")
 	}
 
-	taskRes := &launcher.BaseTaskResult{
+	taskRes := &launcher.LaunchTaskResult{
 		ID:         aws.StringValue(res.Build.Id),
 		TaskStatus: convertTaskStatus(aws.StringValue(res.Build.BuildStatus)),
 		CodeBuild: &launcher.LaunchTaskCodebuildResult{
@@ -144,7 +144,7 @@ func (cbl *CodeBuildLauncher) LaunchTask(rt *launcher.LaunchTaskParams) (*launch
 		},
 	}
 
-	return &launcher.LaunchTaskResult{BaseTaskResult: taskRes}, nil
+	return taskRes, nil
 }
 
 // WaitForTask wait for task to complete
@@ -182,7 +182,7 @@ func (cbl *CodeBuildLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (
 		"StopTime":      aws.TimeValue(build.EndTime),
 	}).Info("Describe completed Task")
 
-	taskRes := &launcher.BaseTaskResult{
+	taskRes := &launcher.GetTaskStatusResult{
 		ID:         aws.StringValue(build.Arn),
 		StartTime:  build.StartTime,
 		EndTime:    build.EndTime,
@@ -201,7 +201,7 @@ func (cbl *CodeBuildLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (
 		}
 	}
 
-	return &launcher.GetTaskStatusResult{BaseTaskResult: taskRes}, nil
+	return taskRes, nil
 
 }
 

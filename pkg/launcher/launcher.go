@@ -36,16 +36,6 @@ type Launcher interface {
 	GetTaskLogs(*GetTaskLogsParams) (*GetTaskLogsResult, error)
 }
 
-// BaseTaskResult common base task result
-type BaseTaskResult struct {
-	ECS        *LaunchTaskECSResult
-	CodeBuild  *LaunchTaskCodebuildResult
-	ID         string
-	TaskStatus string
-	StartTime  *time.Time
-	EndTime    *time.Time
-}
-
 // LaunchTaskECSResult ecs related result information
 type LaunchTaskECSResult struct {
 	TaskArn string
@@ -58,8 +48,25 @@ type LaunchTaskCodebuildResult struct {
 	BuildStatus string
 }
 
+// GetTaskStatusParams get status task parameters
+type GetTaskStatusParams struct {
+	ID        string
+	ECS       *ECSTaskParams
+	Codebuild *CodebuildTaskParams
+}
+
+// GetTaskStatusResult get status task result
+type GetTaskStatusResult struct {
+	ECS        *LaunchTaskECSResult
+	CodeBuild  *LaunchTaskCodebuildResult
+	ID         string
+	TaskStatus string
+	StartTime  *time.Time
+	EndTime    *time.Time
+}
+
 // Valid validate input structure of run task params
-func (rt *BaseTaskResult) Valid() error {
+func (rt *GetTaskStatusResult) Valid() error {
 	// do we have any service params at all
 	if valid.ReflectCountOfNotZero(rt, "ECS", "Codebuild") == 0 {
 		return ErrMissingParams
@@ -71,18 +78,6 @@ func (rt *BaseTaskResult) Valid() error {
 	}
 
 	return nil
-}
-
-// GetTaskStatusParams get status task parameters
-type GetTaskStatusParams struct {
-	ID        string
-	ECS       *ECSTaskParams
-	Codebuild *CodebuildTaskParams
-}
-
-// GetTaskStatusResult get status task result
-type GetTaskStatusResult struct {
-	*BaseTaskResult
 }
 
 // WaitForTaskParams wait for task parameters
@@ -99,7 +94,27 @@ type WaitForTaskResult struct {
 
 // LaunchTaskResult summarsied result of the launched task
 type LaunchTaskResult struct {
-	*BaseTaskResult
+	ECS        *LaunchTaskECSResult
+	CodeBuild  *LaunchTaskCodebuildResult
+	ID         string
+	TaskStatus string
+	StartTime  *time.Time
+	EndTime    *time.Time
+}
+
+// Valid validate input structure of run task params
+func (rt *LaunchTaskResult) Valid() error {
+	// do we have any service params at all
+	if valid.ReflectCountOfNotZero(rt, "ECS", "Codebuild") == 0 {
+		return ErrMissingParams
+	}
+
+	// check there is only one service configuration supplied
+	if !valid.ReflectOneOf(rt, "ECS", "Codebuild") {
+		return ErrInvalidParams
+	}
+
+	return nil
 }
 
 // LaunchTaskParams used to launch container based tasks
