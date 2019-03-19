@@ -1,20 +1,9 @@
 package ecs
 
 import (
-	"fmt"
-	"strings"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
-	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/wolfeidau/aws-launch/pkg/cwlogs"
-	"github.com/wolfeidau/aws-launch/pkg/launcher"
 )
 
 const (
@@ -31,269 +20,111 @@ const (
 	ECSLogGroupFormat = "/aws/fargate/%s"
 )
 
-// ECSLauncher used to launch containers in ECS, specifically fargate
-type ECSLauncher struct {
-	ecsSvc       ecsiface.ECSAPI
-	cwlogsSvc    cloudwatchlogsiface.CloudWatchLogsAPI
-	cwlogsReader cwlogs.LogsReader
+// LauncherAPI build the definition, then launch a container based task
+type LauncherAPI interface {
+	DefineTask(*DefineTaskParams) (*DefineTaskResult, error)
+	LaunchTask(*LaunchTaskParams) (*LaunchTaskResult, error)
+	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
+	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
+	CleanupTask(*CleanupTaskParams) (*CleanupTaskResult, error)
+	GetTaskLogs(*GetTaskLogsParams) (*GetTaskLogsResult, error)
 }
 
-// NewECSLauncher create a new launcher
-func NewECSLauncher(cfgs ...*aws.Config) *ECSLauncher {
-	sess := session.Must(session.NewSession(cfgs...))
-	return &ECSLauncher{
-		ecsSvc:       ecs.New(sess),
-		cwlogsSvc:    cloudwatchlogs.New(sess),
-		cwlogsReader: cwlogs.NewCloudwatchLogsReader(cfgs...),
-	}
+// DefineTaskParams parameters used to build a container execution environment for Codebuild
+type DefineTaskParams struct {
+	ExecutionRoleARN string `json:"execution_role_arn,omitempty" jsonschema:"required"`
+	DefinitionName   string `json:"definition_name,omitempty" jsonschema:"required"`
+	ContainerName    string `json:"container_name,omitempty" jsonschema:"required"`
+
+	Region      string            `json:"region,omitempty" jsonschema:"required"`
+	TaskRoleARN *string           `json:"task_role_arn,omitempty"` // optional
+	Image       string            `json:"image,omitempty" jsonschema:"required"`
+	Environment map[string]string `json:"environment,omitempty"`
+	Tags        map[string]string `json:"tags,omitempty"`
 }
 
-// DefineTask create a container task definition
-func (lc *ECSLauncher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
-
-	logGroupName := fmt.Sprintf(ECSLogGroupFormat, dp.ECS.DefinitionName)
-
-	_, err := lc.cwlogsSvc.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
-		LogGroupName: aws.String(logGroupName),
-		Tags: map[string]*string{
-			"createdBy": aws.String("fargate-run-job"),
-		},
-	})
-	if err, ok := err.(awserr.Error); ok {
-		if err.Code() != "ResourceAlreadyExistsException" {
-			return nil, errors.Wrap(err, "create log group failed.")
-		}
-
-		logrus.WithField("name", logGroupName).Info("cloudwatch log group exists")
-	}
-
-	// register the task definition with default base memory, cpu and cwlogs groups
-	res, err := lc.ecsSvc.RegisterTaskDefinition(&ecs.RegisterTaskDefinitionInput{
-		RequiresCompatibilities: aws.StringSlice([]string{
-			"FARGATE",
-		}),
-		Family:      aws.String(dp.ECS.DefinitionName),
-		TaskRoleArn: dp.TaskRoleARN,
-		NetworkMode: aws.String(ecs.NetworkModeAwsvpc),
-		Cpu:         aws.String(DefaultCPU),
-		Memory:      aws.String(DefaultMemory),
-		ContainerDefinitions: []*ecs.ContainerDefinition{
-			{
-				Name:  aws.String(dp.ECS.ContainerName),
-				Image: aws.String(dp.Image),
-				LogConfiguration: &ecs.LogConfiguration{
-					LogDriver: aws.String(ecs.LogDriverAwslogs),
-					Options: map[string]*string{
-						"awslogs-group":         aws.String(logGroupName),
-						"awslogs-region":        aws.String(dp.Region),
-						"awslogs-stream-prefix": aws.String(ECSStreamPrefix),
-					},
-				},
-				Environment: convertMapToKeyValuePair(dp.Environment),
-			},
-		},
-		ExecutionRoleArn: aws.String(dp.ECS.ExecutionRoleARN),
-		Tags:             convertMapToECSTags(dp.Tags),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to register task definition.")
-	}
-
-	logrus.WithField("result", res).Debug("Register Task Definition")
-
-	return &launcher.DefineTaskResult{
-		ID:                     fmt.Sprintf("%s:%d", aws.StringValue(res.TaskDefinition.Family), aws.Int64Value(res.TaskDefinition.Revision)),
-		CloudwatchLogGroupName: logGroupName,
-		CloudwatchStreamPrefix: "ecs",
-	}, nil
+// DefineTaskResult the results from create definition for Codebuild
+type DefineTaskResult struct {
+	ID                     string `json:"id,omitempty"`
+	CloudwatchLogGroupName string `json:"cloudwatch_log_group_name,omitempty"`
+	CloudwatchStreamPrefix string `json:"cloudwatch_stream_prefix,omitempty"`
 }
 
-// LaunchTask run a container task
-func (lc *ECSLauncher) LaunchTask(lp *launcher.LaunchTaskParams) (*launcher.LaunchTaskResult, error) {
+// LaunchTaskParams used to launch Codebuild container based tasks
+type LaunchTaskParams struct {
+	ClusterName    string   `json:"cluster_name,omitempty" jsonschema:"required"`
+	ServiceName    string   `json:"service_name,omitempty" jsonschema:"required"`
+	ContainerName  string   `json:"container_name,omitempty" jsonschema:"required"`
+	TaskDefinition string   `json:"task_definition,omitempty" jsonschema:"required"`
+	CPU            int64    `json:"cpu,omitempty" jsonschema:"required"`
+	Memory         int64    `json:"memory,omitempty" jsonschema:"required"`
+	Subnets        []string `json:"subnets,omitempty" jsonschema:"required"`
 
-	logrus.WithFields(logrus.Fields{
-		"ClusterName":    lp.ECS.ClusterName,
-		"TaskDefinition": lp.ECS.TaskDefinition,
-	}).Info("Launch Task")
-
-	runRes, err := lc.ecsSvc.RunTask(&ecs.RunTaskInput{
-		Cluster:        aws.String(lp.ECS.ClusterName),
-		LaunchType:     aws.String(ecs.LaunchTypeFargate),
-		TaskDefinition: aws.String(lp.ECS.TaskDefinition),
-		Count:          aws.Int64(1),
-		Overrides: &ecs.TaskOverride{
-			ContainerOverrides: []*ecs.ContainerOverride{
-				{
-					Cpu:         aws.Int64(lp.ECS.CPU),
-					Memory:      aws.Int64(lp.ECS.Memory),
-					Name:        aws.String(lp.ECS.ContainerName),
-					Environment: convertMapToKeyValuePair(lp.Environment),
-				},
-			},
-		},
-		PlatformVersion: aws.String("LATEST"),
-		NetworkConfiguration: &ecs.NetworkConfiguration{
-			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
-				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
-				Subnets:        aws.StringSlice(lp.ECS.Subnets),
-			},
-		},
-		Tags: convertMapToECSTags(lp.Tags),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create task.")
-	}
-
-	task := runRes.Tasks[0]
-
-	logrus.WithFields(logrus.Fields{
-		"TaskID": shortenTaskArn(task.TaskArn),
-	}).Info("Task Provisioned")
-
-	taskRes := &launcher.LaunchTaskResult{
-		ID:         aws.StringValue(task.TaskArn),
-		TaskStatus: launcher.TaskRunning,
-		ECS: &launcher.LaunchTaskECSResult{
-			TaskArn: aws.StringValue(task.TaskArn),
-			TaskID:  shortenTaskArn(task.TaskArn),
-		},
-	}
-
-	return taskRes, nil
+	Environment map[string]string `json:"environment,omitempty"`
+	Tags        map[string]string `json:"tags,omitempty"`
 }
 
-// WaitForTask wait for task to complete
-func (lc *ECSLauncher) WaitForTask(wft *launcher.WaitForTaskParams) (*launcher.WaitForTaskResult, error) {
+// LaunchTaskResult summarsied result of the launched task in Codebuild
+type LaunchTaskResult struct {
+	TaskArn string
+	TaskID  string
 
-	descInput := &ecs.DescribeTasksInput{
-		Cluster: aws.String(wft.ECS.ClusterName),
-		Tasks:   []*string{aws.String(wft.ID)},
-	}
-
-	err := lc.ecsSvc.WaitUntilTasksStopped(descInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to check stopped task.")
-	}
-
-	return &launcher.WaitForTaskResult{ID: wft.ID}, nil
+	ID         string
+	TaskStatus string
+	StartTime  *time.Time
+	EndTime    *time.Time
 }
 
-// GetTaskStatus get task status
-func (lc *ECSLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launcher.GetTaskStatusResult, error) {
-	descInput := &ecs.DescribeTasksInput{
-		Cluster: aws.String(gts.ECS.ClusterName),
-		Tasks:   []*string{aws.String(gts.ID)},
-	}
-	descRes, err := lc.ecsSvc.DescribeTasks(descInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to describe task.")
-	}
+// GetTaskStatusParams get status task parameters for Codebuild
+type GetTaskStatusParams struct {
+	ClusterName string `json:"cluster_name,omitempty" jsonschema:"required"`
 
-	task := descRes.Tasks[0]
-
-	logrus.WithFields(logrus.Fields{
-		"TaskID":        shortenTaskArn(task.TaskArn),
-		"StopCode":      aws.StringValue(task.StopCode),
-		"StoppedReason": aws.StringValue(task.StoppedReason),
-	}).Info("Describe completed Task")
-
-	taskRes := &launcher.GetTaskStatusResult{
-		ID:         aws.StringValue(task.TaskArn),
-		StartTime:  task.StartedAt,
-		EndTime:    task.StoppedAt,
-		TaskStatus: launcher.TaskRunning,
-		ECS: &launcher.LaunchTaskECSResult{
-			TaskArn: aws.StringValue(task.TaskArn),
-			TaskID:  shortenTaskArn(task.TaskArn),
-		},
-	}
-
-	if aws.StringValue(task.LastStatus) == "STOPPED" {
-		if aws.StringValue(task.StopCode) == "EssentialContainerExited" {
-			taskRes.TaskStatus = launcher.TaskSucceeded
-		} else {
-			taskRes.TaskStatus = launcher.TaskFailed
-		}
-	}
-
-	return taskRes, nil
+	ID string
 }
 
-// CleanupTask clean up ecs task definition
-func (lc *ECSLauncher) CleanupTask(ctp *launcher.CleanupTaskParams) (*launcher.CleanupTaskResult, error) {
-	_, err := lc.ecsSvc.DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
-		TaskDefinition: aws.String(ctp.ECS.TaskDefinition),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to de-register definition.")
-	}
+// GetTaskStatusResult get status task result for Codebuild
+type GetTaskStatusResult struct {
+	TaskArn string
+	TaskID  string
 
-	return &launcher.CleanupTaskResult{}, nil
+	ID         string     `json:"id,omitempty"`
+	TaskStatus string     `json:"task_status,omitempty"`
+	StartTime  *time.Time `json:"start_time,omitempty"`
+	EndTime    *time.Time `json:"end_time,omitempty"`
 }
 
-// GetTaskLogs get task logs
-func (lc *ECSLauncher) GetTaskLogs(gtlp *launcher.GetTaskLogsParams) (*launcher.GetTaskLogsResult, error) {
-	taskID := shortenTaskArn(aws.String(gtlp.ECS.TaskARN))
-	logGroupName := fmt.Sprintf(ECSLogGroupFormat, gtlp.ECS.DefinitionName)
-	streamName := fmt.Sprintf("%s/%s/%s", ECSStreamPrefix, gtlp.ECS.DefinitionName, taskID)
+// WaitForTaskParams wait for task parameters for Codebuild
+type WaitForTaskParams struct {
+	ClusterName string `json:"cluster_name,omitempty" jsonschema:"required"`
 
-	logrus.WithFields(logrus.Fields{
-		"group":  logGroupName,
-		"stream": streamName,
-	}).Info("ReadLogs")
-
-	res, err := lc.cwlogsReader.ReadLogs(&cwlogs.ReadLogsParams{
-		GroupName:  logGroupName,
-		StreamName: streamName,
-		NextToken:  gtlp.NextToken,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to retrieve logs for task.")
-	}
-
-	return &launcher.GetTaskLogsResult{
-		LogLines:  res.LogLines,
-		NextToken: res.NextToken,
-	}, nil
+	ID string `json:"id,omitempty"`
 }
 
-func shortenTaskArn(taskArn *string) string {
-	tokens := strings.Split(aws.StringValue(taskArn), "/")
-	if len(tokens) == 3 {
-		return tokens[2]
-	}
-
-	return "unknown"
+// WaitForTaskResult wait for task parameters for Codebuild
+type WaitForTaskResult struct {
+	ID string
 }
 
-func convertMapToKeyValuePair(env map[string]string) []*ecs.KeyValuePair {
-
-	ecsEnv := []*ecs.KeyValuePair{}
-
-	// empty map is valid
-	if env == nil {
-		return nil
-	}
-
-	for k, v := range env {
-		ecsEnv = append(ecsEnv, &ecs.KeyValuePair{Name: aws.String(k), Value: aws.String(v)})
-	}
-
-	return ecsEnv
+// CleanupTaskParams cleanup definition params for Codebuild
+type CleanupTaskParams struct {
+	TaskDefinition string `json:"task_definition,omitempty" jsonschema:"required"`
 }
 
-func convertMapToECSTags(tags map[string]string) []*ecs.Tag {
+// CleanupTaskResult cleanup definition result for Codebuild
+type CleanupTaskResult struct {
+}
 
-	ecsTags := []*ecs.Tag{}
+// GetTaskLogsParams get logs task params for Codebuild
+type GetTaskLogsParams struct {
+	DefinitionName string `json:"definition_name,omitempty" jsonschema:"required"`
+	TaskARN        string `json:"task_arn,omitempty" jsonschema:"required"`
 
-	// empty map is valid
-	if tags == nil {
-		return nil
-	}
+	TaskID    string  `json:"task_id,omitempty" jsonschema:"required"`
+	NextToken *string `json:"next_token,omitempty"`
+}
 
-	for k, v := range tags {
-		ecsTags = append(ecsTags, &ecs.Tag{Key: aws.String(k), Value: aws.String(v)})
-	}
-
-	return ecsTags
+// GetTaskLogsResult get logs task result for Codebuild
+type GetTaskLogsResult struct {
+	LogLines  []*cwlogs.LogLine `json:"log_lines,omitempty"`
+	NextToken *string           `json:"next_token,omitempty"`
 }

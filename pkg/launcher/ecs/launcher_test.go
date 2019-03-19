@@ -19,7 +19,7 @@ func Test_ShortenARN(t *testing.T) {
 	require.Equal(t, "abcefg1234567890abcefg1234567890", v)
 }
 
-func TestECSLauncher_LaunchTask(t *testing.T) {
+func TestLauncher_LaunchTask(t *testing.T) {
 
 	cwlogsSvcMock := &awsmocks.CloudWatchLogsAPI{}
 	ecsSvcMock := &awsmocks.ECSAPI{}
@@ -32,24 +32,20 @@ func TestECSLauncher_LaunchTask(t *testing.T) {
 		},
 	}, nil)
 
-	rt := &launcher.LaunchTaskParams{
-		ECS: &launcher.ECSTaskParams{
-			ClusterName:    "abc123",
-			ContainerName:  "test-command",
-			ServiceName:    "test-command",
-			TaskDefinition: "test-command:12",
-		},
+	rt := &LaunchTaskParams{
+		ClusterName:    "abc123",
+		ContainerName:  "test-command",
+		ServiceName:    "test-command",
+		TaskDefinition: "test-command:12",
 	}
 
-	want := &launcher.LaunchTaskResult{
+	want := &LaunchTaskResult{
 		ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
 		TaskStatus: launcher.TaskRunning,
-		ECS: &launcher.LaunchTaskECSResult{
-			TaskArn: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
-			TaskID:  "dece5e631c854b0d9edd5d93e91d5b8c",
-		},
+		TaskArn:    "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+		TaskID:     "dece5e631c854b0d9edd5d93e91d5b8c",
 	}
-	cbl := &ECSLauncher{
+	cbl := &Launcher{
 		ecsSvc:    ecsSvcMock,
 		cwlogsSvc: cwlogsSvcMock,
 	}
@@ -59,7 +55,7 @@ func TestECSLauncher_LaunchTask(t *testing.T) {
 
 }
 
-func TestECSLauncher_DefineTask_With_Update(t *testing.T) {
+func TestLauncher_DefineTask_With_Update(t *testing.T) {
 
 	cwlogsSvcMock := &awsmocks.CloudWatchLogsAPI{}
 	ecsSvcMock := &awsmocks.ECSAPI{}
@@ -72,22 +68,20 @@ func TestECSLauncher_DefineTask_With_Update(t *testing.T) {
 		},
 	}, nil)
 
-	dp := &launcher.DefineTaskParams{
-		ECS: &launcher.ECSDefineTaskParams{
-			ContainerName:    "test-command",
-			DefinitionName:   "test-command",
-			ExecutionRoleARN: "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
-		},
-		Image:  "wolfeidau/test-command:latest",
-		Region: "ap-southeast-2",
+	dp := &DefineTaskParams{
+		ContainerName:    "test-command",
+		DefinitionName:   "test-command",
+		ExecutionRoleARN: "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+		Image:            "wolfeidau/test-command:latest",
+		Region:           "ap-southeast-2",
 	}
-	want := &launcher.DefineTaskResult{
+	want := &DefineTaskResult{
 		ID:                     "test-command:123",
 		CloudwatchLogGroupName: "/aws/fargate/test-command",
 		CloudwatchStreamPrefix: "ecs",
 	}
 
-	cbl := &ECSLauncher{
+	cbl := &Launcher{
 		ecsSvc:    ecsSvcMock,
 		cwlogsSvc: cwlogsSvcMock,
 	}
@@ -97,7 +91,7 @@ func TestECSLauncher_DefineTask_With_Update(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func TestECSLauncher_GetTaskStatus(t *testing.T) {
+func TestLauncher_GetTaskStatus(t *testing.T) {
 
 	ecsSvcMock := &awsmocks.ECSAPI{}
 
@@ -111,21 +105,17 @@ func TestECSLauncher_GetTaskStatus(t *testing.T) {
 		},
 	}, nil)
 
-	gt := &launcher.GetTaskStatusParams{
-		ECS: &launcher.ECSTaskParams{
-			ClusterName: "testing-1",
-		},
+	gt := &GetTaskStatusParams{
+		ClusterName: "testing-1",
 	}
-	want := &launcher.GetTaskStatusResult{
-		ECS: &launcher.LaunchTaskECSResult{
-			TaskArn: "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
-			TaskID:  "dece5e631c854b0d9edd5d93e91d5b8c",
-		},
+	want := &GetTaskStatusResult{
+		TaskArn:    "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
+		TaskID:     "dece5e631c854b0d9edd5d93e91d5b8c",
 		ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
 		TaskStatus: "SUCCEEDED",
 	}
 
-	cbl := &ECSLauncher{
+	cbl := &Launcher{
 		ecsSvc: ecsSvcMock,
 	}
 
@@ -134,20 +124,18 @@ func TestECSLauncher_GetTaskStatus(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func TestECSLauncher_CleanupTask(t *testing.T) {
+func TestLauncher_CleanupTask(t *testing.T) {
 
 	ecsSvcMock := &awsmocks.ECSAPI{}
 
 	ecsSvcMock.On("DeregisterTaskDefinition", mock.AnythingOfType("*ecs.DeregisterTaskDefinitionInput")).Return(&ecs.DeregisterTaskDefinitionOutput{}, nil)
 
-	ct := &launcher.CleanupTaskParams{
-		ECS: &launcher.ECSCleanupTaskParams{
-			TaskDefinition: "test-command:12",
-		},
+	ct := &CleanupTaskParams{
+		TaskDefinition: "test-command:12",
 	}
-	want := &launcher.CleanupTaskResult{}
+	want := &CleanupTaskResult{}
 
-	cbl := &ECSLauncher{
+	cbl := &Launcher{
 		ecsSvc: ecsSvcMock,
 	}
 
@@ -156,7 +144,7 @@ func TestECSLauncher_CleanupTask(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func TestECSLauncher_GetTaskLogs(t *testing.T) {
+func TestLauncher_GetTaskLogs(t *testing.T) {
 
 	cwlogsReader := &mocks.LogsReader{}
 
@@ -165,16 +153,14 @@ func TestECSLauncher_GetTaskLogs(t *testing.T) {
 		NextToken: aws.String("f/123456789"),
 	}, nil)
 
-	gt := &launcher.GetTaskLogsParams{
-		ECS: &launcher.ECSTaskLogsParams{},
-	}
+	gt := &GetTaskLogsParams{}
 
-	want := &launcher.GetTaskLogsResult{
+	want := &GetTaskLogsResult{
 		LogLines:  []*cwlogs.LogLine{{Message: "whaterer"}},
 		NextToken: aws.String("f/123456789"),
 	}
 
-	cbl := &ECSLauncher{
+	cbl := &Launcher{
 		cwlogsReader: cwlogsReader,
 	}
 
