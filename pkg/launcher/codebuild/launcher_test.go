@@ -16,7 +16,7 @@ import (
 
 const codebuildArn = "arn:aws:codebuild:ap-southeast-2:123456789012:build/BuildkiteProject-dev-1:b17dddde-97c6-4592-b7be-216524f8422b"
 
-func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
+func TestLauncher_LaunchTask(t *testing.T) {
 
 	cwlogsSvcMock := &awsmocks.CloudWatchLogsAPI{}
 	codeBuildSvcMock := &awsmocks.CodeBuildAPI{}
@@ -29,24 +29,20 @@ func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
 		},
 	}, nil)
 
-	rt := &launcher.LaunchTaskParams{
-		Codebuild: &launcher.CodebuildTaskParams{
-			ProjectName: "testing-1",
-		},
+	rt := &LaunchTaskParams{
+		ProjectName: "testing-1",
 		Environment: map[string]string{
 			"TestEnv": "test",
 		},
 	}
 
-	want := &launcher.LaunchTaskResult{
-		ID:         "abc123",
-		TaskStatus: launcher.TaskRunning,
-		CodeBuild: &launcher.LaunchTaskCodebuildResult{
-			BuildArn:    codebuildArn,
-			BuildStatus: codebuild.StatusTypeInProgress,
-		},
+	want := &LaunchTaskResult{
+		ID:          "abc123",
+		TaskStatus:  launcher.TaskRunning,
+		BuildArn:    codebuildArn,
+		BuildStatus: codebuild.StatusTypeInProgress,
 	}
-	cbl := &CodeBuildLauncher{
+	cbl := &Launcher{
 		codeBuildSvc: codeBuildSvcMock,
 		cwlogsSvc:    cwlogsSvcMock,
 	}
@@ -56,7 +52,7 @@ func TestCodeBuildLauncher_LaunchTask(t *testing.T) {
 
 }
 
-func TestCodeBuildLauncher_DefineTask_With_Update(t *testing.T) {
+func TestLauncher_DefineTask_With_Update(t *testing.T) {
 
 	cwlogsSvcMock := &awsmocks.CloudWatchLogsAPI{}
 	codeBuildSvcMock := &awsmocks.CodeBuildAPI{}
@@ -68,12 +64,10 @@ func TestCodeBuildLauncher_DefineTask_With_Update(t *testing.T) {
 		},
 	}, nil)
 
-	dp := &launcher.DefineTaskParams{
-		Codebuild: &launcher.CodebuildDefineTaskParams{
-			ProjectName: "testing-1",
-			ComputeType: "BUILD_GENERAL1_SMALL",
-			ServiceRole: "abc123Role",
-		},
+	dp := &DefineTaskParams{
+		ProjectName: "testing-1",
+		ComputeType: "BUILD_GENERAL1_SMALL",
+		ServiceRole: "abc123Role",
 		Tags: map[string]string{
 			"TestTag": "test",
 		},
@@ -81,13 +75,13 @@ func TestCodeBuildLauncher_DefineTask_With_Update(t *testing.T) {
 			"TestEnv": "test",
 		},
 	}
-	want := &launcher.DefineTaskResult{
+	want := &DefineTaskResult{
 		ID:                     "abc123/codebuild/whatever",
 		CloudwatchLogGroupName: "/aws/codebuild/testing-1",
 		CloudwatchStreamPrefix: "codebuild",
 	}
 
-	cbl := &CodeBuildLauncher{
+	cbl := &Launcher{
 		codeBuildSvc: codeBuildSvcMock,
 		cwlogsSvc:    cwlogsSvcMock,
 	}
@@ -97,7 +91,7 @@ func TestCodeBuildLauncher_DefineTask_With_Update(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func TestCodeBuildLauncher_GetTaskStatus(t *testing.T) {
+func TestLauncher_GetTaskStatus(t *testing.T) {
 
 	codeBuildSvcMock := &awsmocks.CodeBuildAPI{}
 
@@ -110,21 +104,17 @@ func TestCodeBuildLauncher_GetTaskStatus(t *testing.T) {
 		},
 	}, nil)
 
-	gt := &launcher.GetTaskStatusParams{
-		Codebuild: &launcher.CodebuildTaskParams{
-			ProjectName: "testing-1",
-		},
+	gt := &GetTaskStatusParams{
+		ID: "testing-1",
 	}
-	want := &launcher.GetTaskStatusResult{
-		CodeBuild: &launcher.LaunchTaskCodebuildResult{
-			BuildArn:    codebuildArn,
-			BuildStatus: "SUCCEEDED",
-		},
-		ID:         codebuildArn,
-		TaskStatus: launcher.TaskSucceeded,
+	want := &GetTaskStatusResult{
+		BuildArn:    codebuildArn,
+		BuildStatus: "SUCCEEDED",
+		ID:          codebuildArn,
+		TaskStatus:  launcher.TaskSucceeded,
 	}
 
-	cbl := &CodeBuildLauncher{
+	cbl := &Launcher{
 		codeBuildSvc: codeBuildSvcMock,
 	}
 
@@ -133,20 +123,18 @@ func TestCodeBuildLauncher_GetTaskStatus(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func TestCodeBuildLauncher_CleanUpTask(t *testing.T) {
+func TestLauncher_CleanUpTask(t *testing.T) {
 
 	codeBuildSvcMock := &awsmocks.CodeBuildAPI{}
 
 	codeBuildSvcMock.On("DeleteProject", mock.AnythingOfType("*codebuild.DeleteProjectInput")).Return(&codebuild.DeleteProjectOutput{}, nil)
 
-	ct := &launcher.CleanupTaskParams{
-		Codebuild: &launcher.CodebuildCleanupTaskParams{
-			ProjectName: "testing-1",
-		},
+	ct := &CleanupTaskParams{
+		ProjectName: "testing-1",
 	}
-	want := &launcher.CleanupTaskResult{}
+	want := &CleanupTaskResult{}
 
-	cbl := &CodeBuildLauncher{
+	cbl := &Launcher{
 		codeBuildSvc: codeBuildSvcMock,
 	}
 
@@ -155,7 +143,7 @@ func TestCodeBuildLauncher_CleanUpTask(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func TestCodeBuildLauncher_GetTaskLogs(t *testing.T) {
+func TestLauncher_GetTaskLogs(t *testing.T) {
 
 	cwlogsReader := &mocks.LogsReader{}
 
@@ -164,16 +152,14 @@ func TestCodeBuildLauncher_GetTaskLogs(t *testing.T) {
 		NextToken: aws.String("f/123456789"),
 	}, nil)
 
-	gt := &launcher.GetTaskLogsParams{
-		Codebuild: &launcher.CodebuildTaskLogsParams{},
-	}
+	gt := &GetTaskLogsParams{}
 
-	want := &launcher.GetTaskLogsResult{
+	want := &GetTaskLogsResult{
 		LogLines:  []*cwlogs.LogLine{{Message: "whatever"}},
 		NextToken: aws.String("f/123456789"),
 	}
 
-	cbl := &CodeBuildLauncher{
+	cbl := &Launcher{
 		cwlogsReader: cwlogsReader,
 	}
 

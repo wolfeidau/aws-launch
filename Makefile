@@ -21,6 +21,7 @@ test:
 
 mocks:
 	@echo "--- mock all the things"
-	mockery -all -dir ./pkg/launcher
+	mockery -all -dir ./pkg/launcher/codebuild -output mocks/codebuildmock -outpkg codebuildmock
+	mockery -all -dir ./pkg/launcher/ecs -output mocks/ecsmock -outpkg ecsmock
 	mockery -all -dir ./pkg/cwlogs
 .PHONY: mocks

@@ -1,22 +1,9 @@
 package codebuild
 
 import (
-	"context"
-	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
-	"github.com/aws/aws-sdk-go/service/codebuild"
-	"github.com/aws/aws-sdk-go/service/codebuild/codebuildiface"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/wolfeidau/aws-launch/pkg/cwlogs"
-	"github.com/wolfeidau/aws-launch/pkg/launcher"
 )
 
 const (
@@ -27,324 +14,105 @@ const (
 	CodebuildLogGroupFormat = "/aws/codebuild/%s"
 )
 
-// CodeBuildLauncher used to launch containers in CodeBuild
-type CodeBuildLauncher struct {
-	codeBuildSvc codebuildiface.CodeBuildAPI
-	cwlogsSvc    cloudwatchlogsiface.CloudWatchLogsAPI
-	cwlogsReader cwlogs.LogsReader
+// LauncherAPI build the definition, then launch a container based task
+type LauncherAPI interface {
+	DefineTask(*DefineTaskParams) (*DefineTaskResult, error)
+	LaunchTask(*LaunchTaskParams) (*LaunchTaskResult, error)
+	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
+	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
+	CleanupTask(*CleanupTaskParams) (*CleanupTaskResult, error)
+	GetTaskLogs(*GetTaskLogsParams) (*GetTaskLogsResult, error)
 }
 
-// NewCodeBuildLauncher create a new launcher
-func NewCodeBuildLauncher(cfgs ...*aws.Config) *CodeBuildLauncher {
-	sess := session.Must(session.NewSession(cfgs...))
-	return &CodeBuildLauncher{
-		codeBuildSvc: codebuild.New(sess),
-		cwlogsSvc:    cloudwatchlogs.New(sess),
-		cwlogsReader: cwlogs.NewCloudwatchLogsReader(cfgs...),
-	}
+// DefineTaskParams parameters used to build a container execution environment for Codebuild
+type DefineTaskParams struct {
+	ProjectName    string `json:"project_name,omitempty" jsonschema:"required"`
+	ComputeType    string `json:"compute_type,omitempty" jsonschema:"required"`
+	PrivilegedMode *bool  `json:"privileged_mode,omitempty"`
+	Buildspec      string `json:"buildspec,omitempty" jsonschema:"required"`
+	ServiceRole    string `json:"service_role,omitempty" jsonschema:"required"`
+
+	Region      string            `json:"region,omitempty" jsonschema:"required"`
+	TaskRoleARN *string           `json:"task_role_arn,omitempty"` // optional
+	Image       string            `json:"image,omitempty" jsonschema:"required"`
+	Environment map[string]string `json:"environment,omitempty"`
+	Tags        map[string]string `json:"tags,omitempty"`
 }
 
-// DefineTask create or update a codebuild job for this definition and return the ARN of this job
-func (cbl *CodeBuildLauncher) DefineTask(dp *launcher.DefineTaskParams) (*launcher.DefineTaskResult, error) {
-
-	logGroupName := fmt.Sprintf(CodebuildLogGroupFormat, dp.Codebuild.ProjectName)
-
-	_, err := cbl.cwlogsSvc.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
-		LogGroupName: aws.String(logGroupName),
-		Tags: map[string]*string{
-			"createdBy": aws.String("fargate-run-job"),
-		},
-	})
-	if err, ok := err.(awserr.Error); ok {
-		if err.Code() != "ResourceAlreadyExistsException" {
-			return nil, errors.Wrap(err, "create log group failed.")
-		}
-
-		logrus.WithField("name", logGroupName).Info("cloudwatch log group exists")
-	}
-
-	// just update the project to see if it already exists
-	// NOTE: currently codebuild list projects call has no filter
-	projectArn, updated, err := cbl.tryUpdateProject(dp, logGroupName)
-	if err != nil {
-		return nil, err
-	}
-	if updated {
-		logrus.WithField("projectArn", projectArn).Info("updated codebuild project")
-
-		return &launcher.DefineTaskResult{
-			ID:                     projectArn,
-			CloudwatchLogGroupName: logGroupName,
-			CloudwatchStreamPrefix: "codebuild",
-		}, nil
-	}
-
-	createRes, err := cbl.codeBuildSvc.CreateProject(&codebuild.CreateProjectInput{
-		Name: aws.String(dp.Codebuild.ProjectName),
-		Environment: &codebuild.ProjectEnvironment{
-			ComputeType:          aws.String(dp.Codebuild.ComputeType),
-			Image:                aws.String(dp.Image),
-			Type:                 aws.String(codebuild.EnvironmentTypeLinuxContainer),
-			PrivilegedMode:       dp.Codebuild.PrivilegedMode,
-			EnvironmentVariables: convertMapToEnvironmentVariable(dp.Environment),
-		},
-		Artifacts: &codebuild.ProjectArtifacts{
-			Type: aws.String(codebuild.ArtifactsTypeNoArtifacts),
-		},
-		Source: &codebuild.ProjectSource{
-			Type:      aws.String(codebuild.SourceTypeNoSource),
-			Buildspec: aws.String(dp.Codebuild.Buildspec),
-		},
-		ServiceRole: aws.String(dp.Codebuild.ServiceRole),
-		LogsConfig: &codebuild.LogsConfig{
-			CloudWatchLogs: &codebuild.CloudWatchLogsConfig{
-				GroupName:  aws.String(logGroupName),
-				StreamName: aws.String(CodebuildStreamPrefix),
-				Status:     aws.String(codebuild.LogsConfigStatusTypeEnabled),
-			},
-		},
-		Tags: convertMapToCodebuildTags(dp.Tags),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to register project.")
-	}
-
-	projectArn = aws.StringValue(createRes.Project.Arn)
-
-	logrus.WithField("projectArn", projectArn).Info("created codebuild project")
-
-	return &launcher.DefineTaskResult{
-		ID:                     projectArn,
-		CloudwatchLogGroupName: logGroupName,
-		CloudwatchStreamPrefix: "codebuild",
-	}, nil
+// DefineTaskResult the results from create definition for Codebuild
+type DefineTaskResult struct {
+	ID                     string `json:"id,omitempty"`
+	CloudwatchLogGroupName string `json:"cloudwatch_log_group_name,omitempty"`
+	CloudwatchStreamPrefix string `json:"cloudwatch_stream_prefix,omitempty"`
 }
 
-// LaunchTask run a container task and monitor it till completion
-func (cbl *CodeBuildLauncher) LaunchTask(rt *launcher.LaunchTaskParams) (*launcher.LaunchTaskResult, error) {
+// LaunchTaskParams used to launch Codebuild container based tasks
+type LaunchTaskParams struct {
+	ProjectName    string  `json:"project_name,omitempty" jsonschema:"required"`
+	ComputeType    *string `json:"compute_type,omitempty"`
+	PrivilegedMode *bool   `json:"privileged_mode,omitempty"`
+	Image          *string `json:"image,omitempty"`
+	ServiceRole    *string `json:"service_role,omitempty"`
 
-	res, err := cbl.codeBuildSvc.StartBuild(&codebuild.StartBuildInput{
-		ProjectName:                  aws.String(rt.Codebuild.ProjectName),
-		EnvironmentVariablesOverride: convertMapToEnvironmentVariable(rt.Environment),
-		ImageOverride:                rt.Codebuild.Image,
-		ComputeTypeOverride:          rt.Codebuild.ComputeType,
-		PrivilegedModeOverride:       rt.Codebuild.PrivilegedMode,
-		ServiceRoleOverride:          rt.Codebuild.ServiceRole,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to start build.")
-	}
-
-	taskRes := &launcher.LaunchTaskResult{
-		ID:         aws.StringValue(res.Build.Id),
-		TaskStatus: convertTaskStatus(aws.StringValue(res.Build.BuildStatus)),
-		CodeBuild: &launcher.LaunchTaskCodebuildResult{
-			BuildArn:    aws.StringValue(res.Build.Arn),
-			BuildStatus: aws.StringValue(res.Build.BuildStatus),
-		},
-	}
-
-	return taskRes, nil
+	Environment map[string]string `json:"environment,omitempty"`
+	Tags        map[string]string `json:"tags,omitempty"`
 }
 
-// WaitForTask wait for task to complete
-func (cbl *CodeBuildLauncher) WaitForTask(wft *launcher.WaitForTaskParams) (*launcher.WaitForTaskResult, error) {
+// LaunchTaskResult summarsied result of the launched task in Codebuild
+type LaunchTaskResult struct {
+	BuildArn    string
+	BuildStatus string
 
-	params := &codebuild.BatchGetBuildsInput{
-		Ids: []*string{aws.String(wft.ID)},
-	}
-
-	err := cbl.waitUntilTasksStoppedWithContext(context.Background(), params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to start build.")
-	}
-
-	return &launcher.WaitForTaskResult{ID: wft.ID}, nil
+	ID         string
+	TaskStatus string
+	StartTime  *time.Time
+	EndTime    *time.Time
 }
 
-// GetTaskStatus get task status
-func (cbl *CodeBuildLauncher) GetTaskStatus(gts *launcher.GetTaskStatusParams) (*launcher.GetTaskStatusResult, error) {
-
-	params := &codebuild.BatchGetBuildsInput{
-		Ids: []*string{aws.String(gts.ID)},
-	}
-	getBuildRes, err := cbl.codeBuildSvc.BatchGetBuilds(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to start build.")
-	}
-
-	build := getBuildRes.Builds[0]
-
-	logrus.WithFields(logrus.Fields{
-		"BuildComplete": aws.BoolValue(build.BuildComplete),
-		"BuildStatus":   aws.StringValue(build.BuildStatus),
-		"StartTime":     aws.TimeValue(build.StartTime),
-		"StopTime":      aws.TimeValue(build.EndTime),
-	}).Info("Describe completed Task")
-
-	taskRes := &launcher.GetTaskStatusResult{
-		ID:         aws.StringValue(build.Arn),
-		StartTime:  build.StartTime,
-		EndTime:    build.EndTime,
-		TaskStatus: convertTaskStatus(aws.StringValue(build.BuildStatus)),
-		CodeBuild: &launcher.LaunchTaskCodebuildResult{
-			BuildArn:    aws.StringValue(build.Arn),
-			BuildStatus: aws.StringValue(build.BuildStatus),
-		},
-	}
-
-	if aws.BoolValue(build.BuildComplete) {
-		if aws.StringValue(build.BuildStatus) == "SUCCEEDED" {
-			taskRes.TaskStatus = launcher.TaskSucceeded
-		} else {
-			taskRes.TaskStatus = launcher.TaskFailed
-		}
-	}
-
-	return taskRes, nil
-
+// GetTaskStatusParams get status task parameters for Codebuild
+type GetTaskStatusParams struct {
+	ID string
 }
 
-// CleanupTask clean up codebuild project
-func (cbl *CodeBuildLauncher) CleanupTask(ctp *launcher.CleanupTaskParams) (*launcher.CleanupTaskResult, error) {
-	_, err := cbl.codeBuildSvc.DeleteProject(&codebuild.DeleteProjectInput{
-		Name: aws.String(ctp.Codebuild.ProjectName),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to delete project.")
-	}
+// GetTaskStatusResult get status task result for Codebuild
+type GetTaskStatusResult struct {
+	BuildArn    string
+	BuildStatus string
 
-	return &launcher.CleanupTaskResult{}, nil
+	ID         string     `json:"id,omitempty"`
+	TaskStatus string     `json:"task_status,omitempty"`
+	StartTime  *time.Time `json:"start_time,omitempty"`
+	EndTime    *time.Time `json:"end_time,omitempty"`
 }
 
-// GetTaskLogs get task logs
-func (cbl *CodeBuildLauncher) GetTaskLogs(gtlp *launcher.GetTaskLogsParams) (*launcher.GetTaskLogsResult, error) {
-
-	logGroupName := fmt.Sprintf(CodebuildLogGroupFormat, gtlp.Codebuild.ProjectName)
-	streamName := fmt.Sprintf("%s/%s", CodebuildStreamPrefix, gtlp.Codebuild.TaskID)
-
-	res, err := cbl.cwlogsReader.ReadLogs(&cwlogs.ReadLogsParams{
-		GroupName:  logGroupName,
-		StreamName: streamName,
-		NextToken:  gtlp.NextToken,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to retrieve logs for task.")
-	}
-
-	return &launcher.GetTaskLogsResult{
-		LogLines:  res.LogLines,
-		NextToken: res.NextToken,
-	}, nil
+// WaitForTaskParams wait for task parameters for Codebuild
+type WaitForTaskParams struct {
+	ID string `json:"id,omitempty"`
 }
 
-func (cbl *CodeBuildLauncher) tryUpdateProject(dp *launcher.DefineTaskParams, logGroupName string) (string, bool, error) {
-	updateRes, err := cbl.codeBuildSvc.UpdateProject(&codebuild.UpdateProjectInput{
-		Name: aws.String(dp.Codebuild.ProjectName),
-		Environment: &codebuild.ProjectEnvironment{
-			ComputeType:          aws.String(dp.Codebuild.ComputeType),
-			Image:                aws.String(dp.Image),
-			Type:                 aws.String(codebuild.EnvironmentTypeLinuxContainer),
-			PrivilegedMode:       dp.Codebuild.PrivilegedMode,
-			EnvironmentVariables: convertMapToEnvironmentVariable(dp.Environment),
-		},
-		Artifacts: &codebuild.ProjectArtifacts{
-			Type: aws.String(codebuild.ArtifactsTypeNoArtifacts),
-		},
-		Source: &codebuild.ProjectSource{
-			Type:      aws.String(codebuild.SourceTypeNoSource),
-			Buildspec: aws.String(dp.Codebuild.Buildspec),
-		},
-		ServiceRole: aws.String(dp.Codebuild.ServiceRole),
-		LogsConfig: &codebuild.LogsConfig{
-			CloudWatchLogs: &codebuild.CloudWatchLogsConfig{
-				GroupName:  aws.String(logGroupName),
-				StreamName: aws.String("codebuild"),
-				Status:     aws.String(codebuild.LogsConfigStatusTypeEnabled),
-			},
-		},
-		Tags: convertMapToCodebuildTags(dp.Tags),
-	})
-	if err, ok := err.(awserr.Error); ok {
-		if err.Code() == "ResourceNotFoundException" {
-			return "", false, nil // skip this error as the job will be subsequently created
-		}
-		return "", false, errors.Wrap(err, "update codebuild project failed.")
-	}
-
-	return aws.StringValue(updateRes.Project.Arn), true, nil
+// WaitForTaskResult wait for task parameters for Codebuild
+type WaitForTaskResult struct {
+	ID string
 }
 
-func (cbl *CodeBuildLauncher) waitUntilTasksStoppedWithContext(ctx aws.Context, input *codebuild.BatchGetBuildsInput, opts ...request.WaiterOption) error {
-	w := request.Waiter{
-		Name:        "WaitUntilBuildsStopped",
-		MaxAttempts: 100,
-		Delay:       request.ConstantWaiterDelay(6 * time.Second),
-		Acceptors: []request.WaiterAcceptor{
-			{
-				State:   request.SuccessWaiterState,
-				Matcher: request.PathAllWaiterMatch, Argument: "builds[].buildComplete",
-				Expected: true,
-			},
-		},
-		NewRequest: func(opts []request.Option) (*request.Request, error) {
-			var inCpy *codebuild.BatchGetBuildsInput
-			if input != nil {
-				tmp := *input
-				inCpy = &tmp
-			}
-			req, _ := cbl.codeBuildSvc.BatchGetBuildsRequest(inCpy)
-			req.SetContext(ctx)
-			req.ApplyOptions(opts...)
-			return req, nil
-		},
-	}
-	w.ApplyOptions(opts...)
-
-	return w.WaitWithContext(ctx)
+// CleanupTaskParams cleanup definition params for Codebuild
+type CleanupTaskParams struct {
+	ProjectName string `json:"project_name,omitempty" jsonschema:"required"`
 }
 
-func convertMapToEnvironmentVariable(env map[string]string) []*codebuild.EnvironmentVariable {
-
-	codebuildEnv := []*codebuild.EnvironmentVariable{}
-
-	// empty map is valid
-	if env == nil {
-		return nil
-	}
-
-	for k, v := range env {
-		codebuildEnv = append(codebuildEnv, &codebuild.EnvironmentVariable{Name: aws.String(k), Value: aws.String(v)})
-	}
-
-	return codebuildEnv
+// CleanupTaskResult cleanup definition result for Codebuild
+type CleanupTaskResult struct {
 }
 
-func convertMapToCodebuildTags(tags map[string]string) []*codebuild.Tag {
-
-	codebuildTags := []*codebuild.Tag{}
-
-	// empty map is valid
-	if tags == nil {
-		return nil
-	}
-
-	for k, v := range tags {
-		codebuildTags = append(codebuildTags, &codebuild.Tag{Key: aws.String(k), Value: aws.String(v)})
-	}
-
-	return codebuildTags
+// GetTaskLogsParams get logs task params for Codebuild
+type GetTaskLogsParams struct {
+	ProjectName string  `json:"project_name,omitempty" jsonschema:"required"`
+	TaskID      string  `json:"task_id,omitempty" jsonschema:"required"`
+	NextToken   *string `json:"next_token,omitempty"`
 }
 
-func convertTaskStatus(codebuildStatus string) string {
-	switch codebuildStatus {
-	case codebuild.StatusTypeStopped:
-		return launcher.TaskStopped
-	case codebuild.StatusTypeInProgress:
-		return launcher.TaskRunning
-	case codebuild.StatusTypeSucceeded:
-		return launcher.TaskSucceeded
-	default:
-		return launcher.TaskFailed
-	}
+// GetTaskLogsResult get logs task result for Codebuild
+type GetTaskLogsResult struct {
+	LogLines  []*cwlogs.LogLine `json:"log_lines,omitempty"`
+	NextToken *string           `json:"next_token,omitempty"`
 }
