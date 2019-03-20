@@ -26,6 +26,7 @@ type LauncherAPI interface {
 	LaunchTask(*LaunchTaskParams) (*LaunchTaskResult, error)
 	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
 	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
+	StopTask(*StopTaskParams) (*StopTaskResult, error)
 	CleanupTask(*CleanupTaskParams) (*CleanupTaskResult, error)
 	GetTaskLogs(*GetTaskLogsParams) (*GetTaskLogsResult, error)
 }
@@ -66,26 +67,28 @@ type LaunchTaskParams struct {
 
 // LaunchTaskResult summarsied result of the launched task in Codebuild
 type LaunchTaskResult struct {
-	TaskArn string
-	TaskID  string
+	TaskArn string `json:"task_arn,omitempty"`
+	TaskID  string `json:"task_id,omitempty"`
 
-	ID         string
-	TaskStatus string
-	StartTime  *time.Time
-	EndTime    *time.Time
+	ID         string     `json:"id,omitempty"`
+	TaskStatus string     `json:"task_status,omitempty"`
+	StartTime  *time.Time `json:"start_time,omitempty"`
+	EndTime    *time.Time `json:"end_time,omitempty"`
 }
 
 // GetTaskStatusParams get status task parameters for Codebuild
 type GetTaskStatusParams struct {
 	ClusterName string `json:"cluster_name,omitempty" jsonschema:"required"`
 
-	ID string
+	ID string `json:"id,omitempty"`
 }
 
 // GetTaskStatusResult get status task result for Codebuild
 type GetTaskStatusResult struct {
-	TaskArn string
-	TaskID  string
+	TaskArn    string `json:"task_arn,omitempty"`
+	TaskID     string `json:"task_id,omitempty"`
+	LastStatus string `json:"last_status,omitempty"`
+	StopCode   string `json:"stop_reason,omitempty"`
 
 	ID         string     `json:"id,omitempty"`
 	TaskStatus string     `json:"task_status,omitempty"`
@@ -102,7 +105,21 @@ type WaitForTaskParams struct {
 
 // WaitForTaskResult wait for task parameters for Codebuild
 type WaitForTaskResult struct {
-	ID string
+	ID string `json:"id,omitempty"`
+}
+
+// StopTaskParams stop task params for Codebuild
+type StopTaskParams struct {
+	ClusterName string `json:"cluster_name,omitempty" jsonschema:"required"`
+	TaskARN     string `json:"task_arn,omitempty" jsonschema:"required"`
+}
+
+// StopTaskResult stop task result for Codebuild
+type StopTaskResult struct {
+	LastStatus string `json:"last_status,omitempty"`
+	StopCode   string `json:"stop_reason,omitempty"`
+
+	TaskStatus string `json:"task_status,omitempty"`
 }
 
 // CleanupTaskParams cleanup definition params for Codebuild
