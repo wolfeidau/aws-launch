@@ -123,6 +123,33 @@ func TestLauncher_GetTaskStatus(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
+func TestLauncher_StopTask(t *testing.T) {
+
+	codeBuildSvcMock := &awsmocks.CodeBuildAPI{}
+
+	codeBuildSvcMock.On("StopBuild", mock.AnythingOfType("*codebuild.StopBuildInput")).Return(&codebuild.StopBuildOutput{
+		Build: &codebuild.Build{
+			BuildStatus: aws.String(codebuild.StatusTypeSucceeded),
+		},
+	}, nil)
+
+	ct := &StopTaskParams{
+		ID: "testing-1",
+	}
+	want := &StopTaskResult{
+		BuildStatus: codebuild.StatusTypeSucceeded,
+		TaskStatus:  launcher.TaskSucceeded,
+	}
+
+	cbl := &Launcher{
+		codeBuildSvc: codeBuildSvcMock,
+	}
+
+	got, err := cbl.StopTask(ct)
+	require.Nil(t, err)
+	require.Equal(t, want, got)
+}
+
 func TestLauncher_CleanUpTask(t *testing.T) {
 
 	codeBuildSvcMock := &awsmocks.CodeBuildAPI{}

@@ -193,6 +193,23 @@ func (cbl *Launcher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResu
 
 }
 
+// StopTask stop codebuild task
+func (cbl *Launcher) StopTask(stp *StopTaskParams) (*StopTaskResult, error) {
+	res, err := cbl.codeBuildSvc.StopBuild(&codebuild.StopBuildInput{
+		Id: aws.String(stp.ID),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to stop project.")
+	}
+
+	buildStatus := aws.StringValue(res.Build.BuildStatus)
+
+	return &StopTaskResult{
+		BuildStatus: buildStatus,
+		TaskStatus:  convertTaskStatus(buildStatus),
+	}, nil
+}
+
 // CleanupTask clean up codebuild project
 func (cbl *Launcher) CleanupTask(ctp *CleanupTaskParams) (*CleanupTaskResult, error) {
 	_, err := cbl.codeBuildSvc.DeleteProject(&codebuild.DeleteProjectInput{

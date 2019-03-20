@@ -113,6 +113,8 @@ func TestLauncher_GetTaskStatus(t *testing.T) {
 		TaskID:     "dece5e631c854b0d9edd5d93e91d5b8c",
 		ID:         "arn:aws:ecs:ap-southeast-2:123456789012:task/wolfeidau-ecs-dev-Cluster-1234567890123/dece5e631c854b0d9edd5d93e91d5b8c",
 		TaskStatus: "SUCCEEDED",
+		LastStatus: "STOPPED",
+		StopCode:   "EssentialContainerExited",
 	}
 
 	cbl := &Launcher{
@@ -124,6 +126,35 @@ func TestLauncher_GetTaskStatus(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
+func TestLauncher_StopTask(t *testing.T) {
+
+	ecsSvcMock := &awsmocks.ECSAPI{}
+
+	ecsSvcMock.On("StopTask", mock.AnythingOfType("*ecs.StopTaskInput")).Return(&ecs.StopTaskOutput{
+		Task: &ecs.Task{
+			LastStatus: aws.String(ecs.DesiredStatusStopped),
+			StopCode:   aws.String(ecs.TaskStopCodeEssentialContainerExited),
+		},
+	}, nil)
+
+	ct := &StopTaskParams{
+		ClusterName: "abc123",
+		TaskARN:     "test-command:12",
+	}
+	want := &StopTaskResult{
+		TaskStatus: "SUCCEEDED",
+		LastStatus: "STOPPED",
+		StopCode:   "EssentialContainerExited",
+	}
+
+	cbl := &Launcher{
+		ecsSvc: ecsSvcMock,
+	}
+
+	got, err := cbl.StopTask(ct)
+	require.Nil(t, err)
+	require.Equal(t, want, got)
+}
 func TestLauncher_CleanupTask(t *testing.T) {
 
 	ecsSvcMock := &awsmocks.ECSAPI{}
@@ -167,4 +198,47 @@ func TestLauncher_GetTaskLogs(t *testing.T) {
 	got, err := cbl.GetTaskLogs(gt)
 	require.Nil(t, err)
 	require.Equal(t, want, got)
+}
+
+func Test_convertTaskStatus(t *testing.T) {
+	type args struct {
+		lastStatus string
+		stopCode   string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "stopped and exited should return succeeded",
+			args: args{
+				lastStatus: ecs.DesiredStatusStopped,
+				stopCode:   ecs.TaskStopCodeEssentialContainerExited,
+			},
+			want: launcher.TaskSucceeded,
+		},
+		{
+			name: "last status running should return running",
+			args: args{
+				lastStatus: ecs.DesiredStatusRunning,
+			},
+			want: launcher.TaskRunning,
+		},
+		{
+			name: "last exited should return failed",
+			args: args{
+				lastStatus: ecs.DesiredStatusStopped,
+				stopCode:   ecs.TaskStopCodeTaskFailedToStart,
+			},
+			want: launcher.TaskFailed,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := convertTaskStatus(tt.args.lastStatus, tt.args.stopCode); got != tt.want {
+				t.Errorf("convertTaskStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

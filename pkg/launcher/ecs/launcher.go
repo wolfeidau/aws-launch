@@ -185,20 +185,34 @@ func (lc *Launcher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResul
 		ID:         aws.StringValue(task.TaskArn),
 		StartTime:  task.StartedAt,
 		EndTime:    task.StoppedAt,
-		TaskStatus: launcher.TaskRunning,
+		TaskStatus: convertTaskStatus(aws.StringValue(task.LastStatus), aws.StringValue(task.StopCode)),
 		TaskArn:    aws.StringValue(task.TaskArn),
 		TaskID:     shortenTaskArn(task.TaskArn),
-	}
-
-	if aws.StringValue(task.LastStatus) == "STOPPED" {
-		if aws.StringValue(task.StopCode) == "EssentialContainerExited" {
-			taskRes.TaskStatus = launcher.TaskSucceeded
-		} else {
-			taskRes.TaskStatus = launcher.TaskFailed
-		}
+		LastStatus: aws.StringValue(task.LastStatus),
+		StopCode:   aws.StringValue(task.StopCode),
 	}
 
 	return taskRes, nil
+}
+
+// StopTask clean up ecs task definition
+func (lc *Launcher) StopTask(stp *StopTaskParams) (*StopTaskResult, error) {
+	res, err := lc.ecsSvc.StopTask(&ecs.StopTaskInput{
+		Cluster: aws.String(stp.ClusterName),
+		Reason:  aws.String("request stop task"),
+		Task:    aws.String(stp.TaskARN),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to de-register definition.")
+	}
+
+	task := res.Task
+
+	return &StopTaskResult{
+		LastStatus: aws.StringValue(task.LastStatus),
+		StopCode:   aws.StringValue(task.StopCode),
+		TaskStatus: convertTaskStatus(aws.StringValue(task.LastStatus), aws.StringValue(task.StopCode)),
+	}, nil
 }
 
 // CleanupTask clean up ecs task definition
@@ -278,4 +292,14 @@ func convertMapToECSTags(tags map[string]string) []*ecs.Tag {
 	}
 
 	return ecsTags
+}
+
+func convertTaskStatus(lastStatus, stopCode string) string {
+	if lastStatus == ecs.DesiredStatusStopped {
+		if stopCode == ecs.TaskStopCodeEssentialContainerExited {
+			return launcher.TaskSucceeded
+		}
+		return launcher.TaskFailed
+	}
+	return launcher.TaskRunning
 }

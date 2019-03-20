@@ -20,6 +20,7 @@ type LauncherAPI interface {
 	LaunchTask(*LaunchTaskParams) (*LaunchTaskResult, error)
 	GetTaskStatus(*GetTaskStatusParams) (*GetTaskStatusResult, error)
 	WaitForTask(*WaitForTaskParams) (*WaitForTaskResult, error)
+	StopTask(*StopTaskParams) (*StopTaskResult, error)
 	CleanupTask(*CleanupTaskParams) (*CleanupTaskResult, error)
 	GetTaskLogs(*GetTaskLogsParams) (*GetTaskLogsResult, error)
 }
@@ -92,15 +93,27 @@ type WaitForTaskParams struct {
 
 // WaitForTaskResult wait for task parameters for Codebuild
 type WaitForTaskResult struct {
-	ID string
+	ID string `json:"id,omitempty"`
 }
 
-// CleanupTaskParams cleanup definition params for Codebuild
+// StopTaskParams stop task params for Codebuild
+type StopTaskParams struct {
+	ID string `json:"id,omitempty"`
+}
+
+// StopTaskResult stop task result for Codebuild
+type StopTaskResult struct {
+	BuildStatus string `json:"build_status,omitempty"`
+
+	TaskStatus string `json:"task_status,omitempty"`
+}
+
+// CleanupTaskParams cleanup task params for Codebuild
 type CleanupTaskParams struct {
 	ProjectName string `json:"project_name,omitempty" jsonschema:"required"`
 }
 
-// CleanupTaskResult cleanup definition result for Codebuild
+// CleanupTaskResult cleanup task result for Codebuild
 type CleanupTaskResult struct {
 }
 
