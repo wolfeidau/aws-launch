@@ -125,6 +125,29 @@ func (_m *LauncherAPI) LaunchTask(_a0 *ecs.LaunchTaskParams) (*ecs.LaunchTaskRes
 	return r0, r1
 }
 
+// StopTask provides a mock function with given fields: _a0
+func (_m *LauncherAPI) StopTask(_a0 *ecs.StopTaskParams) (*ecs.StopTaskResult, error) {
+	ret := _m.Called(_a0)
+
+	var r0 *ecs.StopTaskResult
+	if rf, ok := ret.Get(0).(func(*ecs.StopTaskParams) *ecs.StopTaskResult); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ecs.StopTaskResult)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*ecs.StopTaskParams) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // WaitForTask provides a mock function with given fields: _a0
 func (_m *LauncherAPI) WaitForTask(_a0 *ecs.WaitForTaskParams) (*ecs.WaitForTaskResult, error) {
 	ret := _m.Called(_a0)
