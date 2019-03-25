@@ -61,18 +61,18 @@ type LaunchTaskParams struct {
 
 // LaunchTaskResult summarsied result of the launched task in Codebuild
 type LaunchTaskResult struct {
-	BuildArn    string
-	BuildStatus string
+	BuildArn    string `json:"build_arn,omitempty"`
+	BuildStatus string `json:"build_status,omitempty"`
 
-	ID         string
-	TaskStatus string
-	StartTime  *time.Time
-	EndTime    *time.Time
+	ID         string     `json:"id,omitempty"`
+	TaskStatus string     `json:"task_status,omitempty"`
+	StartTime  *time.Time `json:"start_time,omitempty"`
+	EndTime    *time.Time `json:"end_time,omitempty"`
 }
 
 // GetTaskStatusParams get status task parameters for Codebuild
 type GetTaskStatusParams struct {
-	ID string
+	ID string `json:"id,omitempty"`
 }
 
 // GetTaskStatusResult get status task result for Codebuild
