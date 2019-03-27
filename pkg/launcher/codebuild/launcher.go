@@ -173,7 +173,7 @@ func (cbl *Launcher) GetTaskStatus(gts *GetTaskStatusParams) (*GetTaskStatusResu
 	}).Info("Describe completed Task")
 
 	taskRes := &GetTaskStatusResult{
-		ID:          aws.StringValue(build.Arn),
+		ID:          aws.StringValue(build.Id),
 		StartTime:   build.StartTime,
 		EndTime:     build.EndTime,
 		TaskStatus:  convertTaskStatus(aws.StringValue(build.BuildStatus)),
