@@ -21,7 +21,13 @@ func TestLauncher_LaunchTask(t *testing.T) {
 	cwlogsSvcMock := &awsmocks.CloudWatchLogsAPI{}
 	codeBuildSvcMock := &awsmocks.CodeBuildAPI{}
 
-	codeBuildSvcMock.On("StartBuild", mock.AnythingOfType("*codebuild.StartBuildInput")).Return(&codebuild.StartBuildOutput{
+	codeBuildSvcMock.On("StartBuild", &codebuild.StartBuildInput{
+		ProjectName: aws.String("testing-1"),
+		EnvironmentVariablesOverride: []*codebuild.EnvironmentVariable{
+			{Name: aws.String("TestEnv"), Value: aws.String("test")},
+		},
+		ImageOverride: aws.String("wolfeidau/codebuild-docker-buildkite:17.09.0"),
+	}).Return(&codebuild.StartBuildOutput{
 		Build: &codebuild.Build{
 			Id:          aws.String("abc123"),
 			BuildStatus: aws.String(codebuild.StatusTypeInProgress),
@@ -34,6 +40,7 @@ func TestLauncher_LaunchTask(t *testing.T) {
 		Environment: map[string]string{
 			"TestEnv": "test",
 		},
+		Image: aws.String("wolfeidau/codebuild-docker-buildkite:17.09.0"),
 	}
 
 	want := &LaunchTaskResult{
@@ -58,7 +65,38 @@ func TestLauncher_DefineTask_With_Update(t *testing.T) {
 	codeBuildSvcMock := &awsmocks.CodeBuildAPI{}
 
 	cwlogsSvcMock.On("CreateLogGroup", mock.AnythingOfType("*cloudwatchlogs.CreateLogGroupInput")).Return(&cloudwatchlogs.CreateLogGroupOutput{}, nil)
-	codeBuildSvcMock.On("UpdateProject", mock.AnythingOfType("*codebuild.UpdateProjectInput")).Return(&codebuild.UpdateProjectOutput{
+	codeBuildSvcMock.On("UpdateProject", &codebuild.UpdateProjectInput{
+		Environment: &codebuild.ProjectEnvironment{
+			ComputeType: aws.String("BUILD_GENERAL1_SMALL"),
+			Image:       aws.String("wolfeidau/codebuild-docker-buildkite:17.09.0"),
+			Type:        aws.String("LINUX_CONTAINER"),
+			EnvironmentVariables: []*codebuild.EnvironmentVariable{
+				{Name: aws.String("TestEnv"), Value: aws.String("test")},
+			},
+		},
+		Artifacts: &codebuild.ProjectArtifacts{
+			Type: aws.String("NO_ARTIFACTS"),
+		},
+		Name:        aws.String("testing-1"),
+		ServiceRole: aws.String("abc123Role"),
+		LogsConfig: &codebuild.LogsConfig{
+			CloudWatchLogs: &codebuild.CloudWatchLogsConfig{
+				GroupName:  aws.String("/aws/codebuild/testing-1"),
+				Status:     aws.String("ENABLED"),
+				StreamName: aws.String("codebuild"),
+			},
+		},
+		Source: &codebuild.ProjectSource{
+			Buildspec: aws.String(""),
+			Type:      aws.String("NO_SOURCE"),
+		},
+		Tags: []*codebuild.Tag{
+			{
+				Key:   aws.String("TestTag"),
+				Value: aws.String("test"),
+			},
+		},
+	}).Return(&codebuild.UpdateProjectOutput{
 		Project: &codebuild.Project{
 			Arn: aws.String("abc123/codebuild/whatever"),
 		},
@@ -67,6 +105,7 @@ func TestLauncher_DefineTask_With_Update(t *testing.T) {
 	dp := &DefineTaskParams{
 		ProjectName: "testing-1",
 		ComputeType: "BUILD_GENERAL1_SMALL",
+		Image:       "wolfeidau/codebuild-docker-buildkite:17.09.0",
 		ServiceRole: "abc123Role",
 		Tags: map[string]string{
 			"TestTag": "test",
@@ -98,6 +137,7 @@ func TestLauncher_GetTaskStatus(t *testing.T) {
 	codeBuildSvcMock.On("BatchGetBuilds", mock.AnythingOfType("*codebuild.BatchGetBuildsInput")).Return(&codebuild.BatchGetBuildsOutput{
 		Builds: []*codebuild.Build{
 			{
+				Id:          aws.String("buildkite-dev-1:58df10ab-9dc5-4c7f-b0c3-6a02b63306ba"),
 				BuildStatus: aws.String(codebuild.StatusTypeSucceeded),
 				Arn:         aws.String(codebuildArn),
 			},
@@ -105,12 +145,12 @@ func TestLauncher_GetTaskStatus(t *testing.T) {
 	}, nil)
 
 	gt := &GetTaskStatusParams{
-		ID: "testing-1",
+		ID: "buildkite-dev-1:58df10ab-9dc5-4c7f-b0c3-6a02b63306ba",
 	}
 	want := &GetTaskStatusResult{
 		BuildArn:    codebuildArn,
 		BuildStatus: "SUCCEEDED",
-		ID:          codebuildArn,
+		ID:          "buildkite-dev-1:58df10ab-9dc5-4c7f-b0c3-6a02b63306ba",
 		TaskStatus:  launcher.TaskSucceeded,
 	}
 
