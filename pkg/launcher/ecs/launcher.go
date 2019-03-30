@@ -138,7 +138,7 @@ func (lc *Launcher) LaunchTask(lp *LaunchTaskParams) (*LaunchTaskResult, error) 
 
 	taskRes := &LaunchTaskResult{
 		ID:         aws.StringValue(task.TaskArn),
-		TaskStatus: launcher.TaskRunning,
+		TaskStatus: convertTaskStatus(aws.StringValue(task.LastStatus), aws.StringValue(task.StopCode)),
 		TaskArn:    aws.StringValue(task.TaskArn),
 		TaskID:     shortenTaskArn(task.TaskArn),
 	}
